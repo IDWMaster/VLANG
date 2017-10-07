@@ -6,7 +6,10 @@ using namespace libparse;
 
 
 enum NodeType {
-  Class, Scope, VariableDeclaration
+  Class, Scope, VariableDeclaration, AssignOp, Constant, BinaryExpression
+};
+enum ConstantType {
+  Integer, String, Character
 };
 class Node {
 public:
@@ -16,6 +19,14 @@ public:
   }
 };
 
+class AssignNode:public Node {
+public:
+  StringRef dest;
+  Node* value;
+  AssignNode():Node(AssignOp) {
+  }
+  
+};
 
 class ScopeNode:public Node {
 public:
@@ -54,11 +65,52 @@ public:
   }
 };
 
+class ConstantNode:public Node {
+public:
+  ConstantType ctype;
+  StringRef value;
+ConstantNode():Node(Constant) {
+}
+};
 
+
+class BinaryExpressionNode:public Node {
+public:
+  char op;
+  BinaryExpression():Node(BinaryExpression) {
+    
+  }
+};
 
 
 class VParser:public ParseTree {
 public:
+  Node* parseExpression(ScopeNode* scope) {
+    Node* retval = 0;
+    skipWhitespace();
+    if(isdigit(*ptr)) {
+      int oval;
+      StringRef erence;
+      if(!parseUnsignedInteger(oval,erence)) {
+	return 0;
+      }
+      ConstantNode* node = new ConstantNode();
+      node->ctype = Integer;
+      node->value = erence;
+      retval = node;
+      
+    }
+    skipWhitespace();
+    
+    if(*ptr == ';') {
+      return retval;
+    }
+    switch(*ptr) {
+      case ''
+      default:
+	return 0;
+    }
+  }
   ClassNode* parseClass(ScopeNode* parent) {
     
     skipWhitespace();
@@ -80,17 +132,18 @@ public:
 	return 0;
       }
       skipWhitespace();
+      StringRef erence;
       switch(wordidx) {
 	case 0:
 	{
-	  if(!parseUnsignedInteger(align)) {
+	  if(!parseUnsignedInteger(align,erence)) {
 	    return 0;
 	  }
 	}
 	  break;
 	case 1:
 	{
-	  if(!parseUnsignedInteger(size)) {
+	  if(!parseUnsignedInteger(size,erence)) {
 	    return 0;
 	  }
 	}
@@ -124,16 +177,16 @@ public:
     }
     
   }
-  bool parseUnsignedInteger(int& out) {
+  bool parseUnsignedInteger(int& out, StringRef& seg) {
     skipWhitespace();
     if(!isdigit(*ptr)) {
       return false;
     }
-    StringRef seg;
     scan(isdigit,seg);
     
     char* end = (char*)(seg.ptr+seg.count);
     out = strtol(seg.ptr,&end,0);
+    ptr--;
     return true;
   }
   bool expectToken(StringRef& out) {
@@ -158,7 +211,21 @@ public:
 	    return parseClass(scope);
 	}
       }else {
-	
+	scan(isalnum,token);
+	skipWhitespace();
+	switch(*ptr) {
+	  case '=':
+	  {
+	    ptr++;
+	    skipWhitespace();
+	    Node* expression = parseExpression(scope);
+	    if(expression) {
+	      
+	    }
+	    
+	  }
+	    break;
+	}
       }
     }
     return 0;
@@ -172,6 +239,6 @@ public:
 };
 
 int main(int argc, char** argv) {
-  const char* test = "class int .align 4 .size 4 { }\nclass byte .size 1 { }\nclass long .align 8 .size 8 { }";
+  const char* test = "class int .align 4 .size 4 { }\nclass byte .size 1 { }\nclass long .align 8 .size 8 { }\nint eger = 5;";
   VParser tounge(test);
 }
