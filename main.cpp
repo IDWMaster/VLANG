@@ -1,87 +1,9 @@
 #include <stdio.h>
-#include "libparse/parser.h"
-#include <map>
+#include "tree.h"
+#include <vector>
+#include <string>
 
-using namespace libparse;
-
-
-enum NodeType {
-  Class, Scope, VariableDeclaration, AssignOp, Constant, BinaryExpression
-};
-enum ConstantType {
-  Integer, String, Character
-};
-class Node {
-public:
-  NodeType type;
-  Node(NodeType type):type(type) {
-    
-  }
-};
-
-class AssignNode:public Node {
-public:
-  StringRef dest;
-  Node* value;
-  AssignNode():Node(AssignOp) {
-  }
-  
-};
-
-class ScopeNode:public Node {
-public:
-  ScopeNode* parent;
-  std::map<StringRef,Node*> tokens;
-  ScopeNode():Node(Scope) {
-  }
-  Node* resolve(const StringRef& name) {
-    if(tokens.find(name) == tokens.end()) {
-      if(parent) {
-	return parent->resolve(name);
-      }
-      return 0;
-    }else {
-      return tokens[name];
-    }
-  }
-  bool add(const StringRef& name, Node* value) {
-    if(tokens.find(name) == tokens.end()) {
-      tokens[name] = value;
-      return true;
-    }
-    return false;
-  }
-};
-
-
-class ClassNode:public Node {
-public:
-  ScopeNode scope;
-  StringRef name;
-  int align; //Required memory alignment for class (or 0 if undefined)
-  int size; //Required size for class (excluding padding) (or 0 if undefined)
-  ClassNode():Node(Class) {
-    
-  }
-};
-
-class ConstantNode:public Node {
-public:
-  ConstantType ctype;
-  StringRef value;
-ConstantNode():Node(Constant) {
-}
-};
-
-
-class BinaryExpressionNode:public Node {
-public:
-  char op;
-  BinaryExpression():Node(BinaryExpression) {
-    
-  }
-};
-
+std::string gencode(Node** nodes, size_t count, ScopeNode* scope);
 
 class VParser:public ParseTree {
 public:
@@ -99,16 +21,29 @@ public:
       node->value = erence;
       retval = node;
       
+    }else {
+      if(isalpha(*ptr)) {
+	//Identifier
+	StringRef id;
+	if(!expectToken(id)) {
+	  return 0;
+	}
+	skipWhitespace();
+	char mander = *ptr;
+	ptr++;
+	switch(mander) {
+	  case '=':
+	  {
+	    
+	  }
+	    break;
+	}
+      }
     }
     skipWhitespace();
     
     if(*ptr == ';') {
       return retval;
-    }
-    switch(*ptr) {
-      case ''
-      default:
-	return 0;
     }
   }
   ClassNode* parseClass(ScopeNode* parent) {
@@ -186,7 +121,6 @@ public:
     
     char* end = (char*)(seg.ptr+seg.count);
     out = strtol(seg.ptr,&end,0);
-    ptr--;
     return true;
   }
   bool expectToken(StringRef& out) {
@@ -202,7 +136,8 @@ public:
     if(isalpha(current)) {
       //Have token
       StringRef token;
-      scan(isalnum,token);
+      expectToken(token);
+      skipWhitespace();
       int keyword;
       std::string cval = token;
       if(token.in(keyword,"class")) {
@@ -211,7 +146,9 @@ public:
 	    return parseClass(scope);
 	}
       }else {
-	scan(isalnum,token);
+	if(isalnum(*ptr)) {
+	StringRef token1;
+	expectToken(token1);
 	skipWhitespace();
 	switch(*ptr) {
 	  case '=':
@@ -220,25 +157,54 @@ public:
 	    skipWhitespace();
 	    Node* expression = parseExpression(scope);
 	    if(expression) {
-	      
+	      AssignNode* retval = new AssignNode();
+	      retval->dest = token1;
+	      retval->value = expression;
+	      VariableDeclarationNode* vardec = new VariableDeclarationNode();
+	      vardec->assignment = retval;
+	      vardec->name = token1;
+	      vardec->vartype = token;
+	      return vardec;
 	    }
 	    
 	  }
 	    break;
+	  case ';':
+	  {
+	    ptr++;
+	    skipWhitespace();
+	    VariableDeclarationNode* retval = new VariableDeclarationNode();
+	    retval->name = token1;
+	    retval->vartype = token;
+	    return retval;
+	  }
+	    break;
+	}
+	}else {
+	  //Parse expression
+	  ptr = token.ptr;
+	  return parseExpression(scope);
 	}
       }
     }
     return 0;
   }
+  std::vector<Node*> instructions;
   ScopeNode scope;
   VParser(const char* code):ParseTree(code) {
    while(*ptr) {
-    parse(&scope);
+    Node* instruction = parse(&scope);
+    if(instruction) {
+    instructions.push_back(instruction);
+    }else {
+      break;
+    }
    }
   }
 };
 
 int main(int argc, char** argv) {
-  const char* test = "class int .align 4 .size 4 { }\nclass byte .size 1 { }\nclass long .align 8 .size 8 { }\nint eger = 5;";
+  const char* test = "class int .align 4 .size 4 { }\nclass byte .size 1 { }\nclass long .align 8 .size 8 { }\nint eger;";
   VParser tounge(test);
+  printf("%s\n",gencode(tounge.instructions.data(),tounge.instructions.size(),&tounge.scope).data());
 }
