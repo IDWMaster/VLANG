@@ -17,6 +17,7 @@ public:
 	return 0;
       }
       ConstantNode* node = new ConstantNode();
+      node->i32val = oval;
       node->ctype = Integer;
       node->value = erence;
       retval = node;
@@ -34,6 +35,10 @@ public:
 	switch(mander) {
 	  case '=':
 	  {
+	    if(*ptr != '=') {
+	      return 0; //Don't support assignment operations from within an expression
+	    }
+	    ptr++;
 	    
 	  }
 	    break;
@@ -204,7 +209,7 @@ public:
 };
 
 int main(int argc, char** argv) {
-  const char* test = "class int .align 4 .size 4 { }\nclass byte .size 1 { }\nclass long .align 8 .size 8 { }\nint eger;";
+  const char* test = "class int .align 4 .size 4 { }\nclass byte .size 1 { }\nclass long .align 8 .size 8 { }\nint eger = 5;";
   VParser tounge(test);
   printf("%s\n",gencode(tounge.instructions.data(),tounge.instructions.size(),&tounge.scope).data());
 }
