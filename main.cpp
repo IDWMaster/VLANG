@@ -48,6 +48,7 @@ public:
     skipWhitespace();
     
     if(*ptr == ';') {
+      ptr++;
       return retval;
     }
   }
@@ -209,7 +210,7 @@ public:
 };
 
 int main(int argc, char** argv) {
-  const char* test = "class int .align 4 .size 4 { }\nclass byte .size 1 { }\nclass long .align 8 .size 8 { }\nint eger = 5;";
+  const char* test = "class int .align 4 .size 4 { }\nclass byte .size 1 { }\nclass long .align 8 .size 8 { }\nint x = 5;int y = 2;";
   VParser tounge(test);
   printf("%s\n",gencode(tounge.instructions.data(),tounge.instructions.size(),&tounge.scope).data());
 }
