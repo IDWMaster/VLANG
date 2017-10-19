@@ -30,7 +30,7 @@ public:
 	    bexp->op = mander;
 	    bexp->lhs = prev;
 	    bexp->rhs = rhs;
-	    return rhs;
+	    return bexp;
 	  }
 	    break;
 	}
