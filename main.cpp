@@ -5,11 +5,38 @@
 
 std::string gencode(Node** nodes, size_t count, ScopeNode* scope);
 
+
+
 class VParser:public ParseTree {
 public:
-  Node* parseExpression(ScopeNode* scope) {
+  Node* parseExpression(ScopeNode* scope, Node* prev = 0) {
     Node* retval = 0;
     skipWhitespace();
+    if(prev) {
+      char mander = *ptr;
+	ptr++;
+	skipWhitespace();
+	switch(mander) {
+	  case '+':
+	  case '-':
+	  case '*':
+	  case '/':
+	  {
+	    Node* rhs = parseExpression(scope);
+	    if(!rhs) {
+	      return 0;
+	    }
+	    BinaryExpressionNode* bexp = new BinaryExpressionNode();
+	    bexp->op = mander;
+	    bexp->lhs = prev;
+	    bexp->rhs = rhs;
+	    return rhs;
+	  }
+	    break;
+	}
+	
+	return 0;
+    }else {
     if(isdigit(*ptr)) {
       int oval;
       StringRef erence;
@@ -29,27 +56,20 @@ public:
 	if(!expectToken(id)) {
 	  return 0;
 	}
-	skipWhitespace();
-	char mander = *ptr;
-	ptr++;
-	switch(mander) {
-	  case '=':
-	  {
-	    if(*ptr != '=') {
-	      return 0; //Don't support assignment operations from within an expression
-	    }
-	    ptr++;
-	    
-	  }
-	    break;
-	}
+	VariableReferenceNode* varref = new VariableReferenceNode();
+	varref->id = id;
+	varref->scope = scope;
+	retval = varref;
       }
+    }
     }
     skipWhitespace();
     
     if(*ptr == ';') {
       ptr++;
       return retval;
+    }else {
+      return parseExpression(scope,retval);
     }
   }
   ClassNode* parseClass(ScopeNode* parent) {
@@ -197,12 +217,14 @@ public:
   }
   std::vector<Node*> instructions;
   ScopeNode scope;
+  bool error = false;
   VParser(const char* code):ParseTree(code) {
    while(*ptr) {
     Node* instruction = parse(&scope);
     if(instruction) {
     instructions.push_back(instruction);
     }else {
+      error = true;
       break;
     }
    }
@@ -210,7 +232,11 @@ public:
 };
 
 int main(int argc, char** argv) {
-  const char* test = "class int .align 4 .size 4 { }\nclass byte .size 1 { }\nclass long .align 8 .size 8 { }\nint x = 5;int y = 2;";
+  const char* test = "class int .align 4 .size 4 { }\nclass byte .size 1 { }\nclass long .align 8 .size 8 { }\nint x = 5;int y = 2;int z = x+y;";
   VParser tounge(test);
-  printf("%s\n",gencode(tounge.instructions.data(),tounge.instructions.size(),&tounge.scope).data());
+  if(!tounge.error) {
+    printf("%s\n",gencode(tounge.instructions.data(),tounge.instructions.size(),&tounge.scope).data());
+  }else {
+    printf("Unexpected end of file\n");
+  }
 }
