@@ -190,6 +190,10 @@ public:
 	      vardec->assignment = retval;
 	      vardec->name = token1;
 	      vardec->vartype = token;
+	      if(!scope->add(token1,vardec)) {
+		delete vardec;
+		return 0;
+	      }
 	      return vardec;
 	    }
 	    
@@ -202,6 +206,10 @@ public:
 	    VariableDeclarationNode* retval = new VariableDeclarationNode();
 	    retval->name = token1;
 	    retval->vartype = token;
+	    if(!scope->add(token1,retval)) {
+		delete retval;
+		return 0;
+	    }
 	    return retval;
 	  }
 	    break;
