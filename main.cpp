@@ -14,14 +14,24 @@ public:
     switch(mander) {
 	  case '-':
 	    rank = 0;
+	    break;
       case '+':
 	    rank = 1;
+	    break;
 	  case '*':
 	    rank = 2;
+	    break;
 	  case '/':
 	    rank = 3;
+	    break;
     }
     return rank;
+  }
+  template<typename T>
+  void swap(T& a, T& b) {
+    T tmp = a;
+    a = b;
+    b = tmp;
   }
   Node* parseExpression(ScopeNode* scope, Node* prev = 0) {
     Node* retval = 0;
@@ -45,6 +55,15 @@ public:
 	    bexp->op = mander;
 	    bexp->lhs = prev;
 	    bexp->rhs = rhs;
+	    if(bexp->rhs->type == BinaryExpression) {
+	      BinaryExpressionNode* node = (BinaryExpressionNode*)bexp->rhs;
+	      if(getRank(node->op)<getRank(mander) && !node->parenthesized) {
+		swap(node->op,bexp->op);
+		swap(node->rhs,bexp->lhs);
+		swap(node->rhs,node->lhs);
+		swap(bexp->lhs,bexp->rhs);
+	      }
+	    }
 	    return bexp;
 	  }
 	    break;
@@ -81,6 +100,9 @@ public:
 	  skipWhitespace();
 	  //TODO: Sub-expression.
 	  Node* subexp = parseExpression(scope,0);
+	  if(subexp->type == BinaryExpression) {
+	    ((BinaryExpressionNode*)subexp)->parenthesized = true;
+	  }
 	  if(!subexp) {
 	    return 0;
 	  }
@@ -274,7 +296,7 @@ public:
 };
 
 int main(int argc, char** argv) {
-  const char* test = "class int .align 4 .size 4 { }\nclass byte .size 1 { }\nclass long .align 8 .size 8 { }\nint x = 5;int y = 2;int z = (2+(7+2)+5)*4+8;";
+  const char* test = "class int .align 4 .size 4 { }\nclass byte .size 1 { }\nclass long .align 8 .size 8 { }\nint x = 5;int y = 2;\nint w = 5*(7*2+6);";
   VParser tounge(test);
   if(!tounge.error) {
     printf("%s\n",gencode(tounge.instructions.data(),tounge.instructions.size(),&tounge.scope).data());
