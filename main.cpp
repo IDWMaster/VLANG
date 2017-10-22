@@ -9,6 +9,20 @@ std::string gencode(Node** nodes, size_t count, ScopeNode* scope);
 
 class VParser:public ParseTree {
 public:
+  int getRank(char mander) {
+    int rank;
+    switch(mander) {
+	  case '-':
+	    rank = 0;
+      case '+':
+	    rank = 1;
+	  case '*':
+	    rank = 2;
+	  case '/':
+	    rank = 3;
+    }
+    return rank;
+  }
   Node* parseExpression(ScopeNode* scope, Node* prev = 0) {
     Node* retval = 0;
     skipWhitespace();
@@ -16,6 +30,7 @@ public:
       char mander = *ptr;
 	ptr++;
 	skipWhitespace();
+	int rank = 0;
 	switch(mander) {
 	  case '+':
 	  case '-':
@@ -60,11 +75,30 @@ public:
 	varref->id = id;
 	varref->scope = scope;
 	retval = varref;
+      }else {
+	if(*ptr == '(') {
+	  ptr++;
+	  skipWhitespace();
+	  //TODO: Sub-expression.
+	  Node* subexp = parseExpression(scope,0);
+	  if(!subexp) {
+	    return 0;
+	  }
+	  if(*ptr != ')') {
+	    delete subexp;
+	    return 0;
+	  }
+	  ptr++;
+	  skipWhitespace();
+	  retval = subexp;
+	}
       }
     }
     }
     skipWhitespace();
-    
+    if(*ptr == ')') {
+      return retval;
+    }
     if(*ptr == ';') {
       ptr++;
       return retval;
@@ -240,7 +274,7 @@ public:
 };
 
 int main(int argc, char** argv) {
-  const char* test = "class int .align 4 .size 4 { }\nclass byte .size 1 { }\nclass long .align 8 .size 8 { }\nint x = 5;int y = 2;int z = x+y;";
+  const char* test = "class int .align 4 .size 4 { }\nclass byte .size 1 { }\nclass long .align 8 .size 8 { }\nint x = 5;int y = 2;int z = (2+7)*4+8;";
   VParser tounge(test);
   if(!tounge.error) {
     printf("%s\n",gencode(tounge.instructions.data(),tounge.instructions.size(),&tounge.scope).data());
