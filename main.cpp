@@ -218,9 +218,14 @@ public:
     if(!expectToken(token)) {
       return 0;
     }
+    if(*ptr != ';') {
+      return 0;
+    }
+    ptr++;
+    
     GotoNode* node = new GotoNode();
     node->target = token;
-    ptr++;
+    
     return node;
   }
   int counter = 0;
