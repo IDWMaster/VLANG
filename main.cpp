@@ -212,6 +212,18 @@ public:
     scan(isalnum,out);
     return true;
   }
+  GotoNode* parseGoto() {
+    skipWhitespace();
+    StringRef token;
+    if(!expectToken(token)) {
+      return 0;
+    }
+    GotoNode* node = new GotoNode();
+    node->target = token;
+    ptr++;
+    return node;
+  }
+  int counter = 0;
   Node* parse(ScopeNode* scope) {
     skipWhitespace();
     char current = *ptr;
@@ -222,10 +234,15 @@ public:
       skipWhitespace();
       int keyword;
       std::string cval = token;
-      if(token.in(keyword,"class")) {
+      if(token.in(keyword,"class","goto")) {
 	switch(keyword) {
 	  case 0:
 	    return parseClass(scope);
+	  case 1:
+	  {
+	    return parseGoto();
+	  }
+	    break;
 	}
       }else {
 	if(isalnum(*ptr)) {
@@ -272,8 +289,27 @@ public:
 	}
 	}else {
 	  //Parse expression
-	  ptr = token.ptr;
-	  return parseExpression(scope);
+	  switch(*ptr) {
+	    case ':':
+	    {
+	      ptr++;
+	      LabelNode* rval = new LabelNode();
+	      rval->id = counter;
+	      counter++;
+	      rval->name = token;
+	      if(!scope->add(rval->name,rval)) {
+		delete rval;
+		return 0;
+	      }
+	      Node* m = scope->resolve(rval->name);
+	      return rval;
+	    }
+	    default:
+	    {
+		ptr = token.ptr;
+		return parseExpression(scope);
+	    }
+	  }
 	}
       }
     }
@@ -296,7 +332,7 @@ public:
 };
 
 int main(int argc, char** argv) {
-  const char* test = "class int .align 4 .size 4 { }\nclass byte .size 1 { }\nclass long .align 8 .size 8 { }\nint x = 5;int y = 2;\nint w = 5*(7*2+6);";
+  const char* test = "class int .align 4 .size 4 { }\nclass byte .size 1 { }\nclass long .align 8 .size 8 { }\nint x = 5;dengo:\nint y = 2;\nint w = 5+2*7/5;goto dengo;";
   VParser tounge(test);
   if(!tounge.error) {
     printf("%s\n",gencode(tounge.instructions.data(),tounge.instructions.size(),&tounge.scope).data());
