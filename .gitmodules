@@ -1,3 +1,6 @@
 [submodule "libparse"]
 	path = libparse
 	url = https://github.com/worplex/libparse.git
+[submodule "UVM"]
+	path = UVM
+	url = https://git@github.com/IDWMaster/UVM
