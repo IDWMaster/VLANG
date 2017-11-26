@@ -2,8 +2,9 @@
 #include "tree.h"
 #include <vector>
 #include <string>
+#include <unistd.h>
 
-std::string gencode(Node** nodes, size_t count, ScopeNode* scope);
+unsigned char* gencode(Node** nodes, size_t count, ScopeNode* scope, size_t* sz);
 
 
 
@@ -261,10 +262,14 @@ public:
 	    skipWhitespace();
 	    Node* expression = parseExpression(scope);
 	    if(expression) {
-	      AssignNode* retval = new AssignNode();
-	      retval->dest = token1;
-	      retval->value = expression;
+	      BinaryExpressionNode* retval = new BinaryExpressionNode();
+	      VariableReferenceNode* varref = new VariableReferenceNode();
+	      varref->id = token1;
+	      varref->scope = scope;
+	      retval->lhs = varref;
+	      retval->rhs = expression;
 	      VariableDeclarationNode* vardec = new VariableDeclarationNode();
+	      varref->variable = vardec;
 	      vardec->assignment = retval;
 	      vardec->name = token1;
 	      vardec->vartype = token;
@@ -340,7 +345,9 @@ int main(int argc, char** argv) {
   const char* test = "class int .align 4 .size 4 { }\nclass byte .size 1 { }\nclass long .align 8 .size 8 { }\nint x = 5;dengo:\nint y = 2;\nint w = 5+2*7/5;goto dengo;";
   VParser tounge(test);
   if(!tounge.error) {
-    printf("%s\n",gencode(tounge.instructions.data(),tounge.instructions.size(),&tounge.scope).data());
+    size_t sz;
+    unsigned char* code = gencode(tounge.instructions.data(),tounge.instructions.size(),&tounge.scope,&sz);
+    write(STDIN_FILENO,code,sz);
   }else {
     printf("Unexpected end of file\n");
   }
