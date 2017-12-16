@@ -425,7 +425,7 @@ public:
       skipWhitespace();
       int keyword;
       std::string cval = token;
-      if(token.in(keyword,"class","goto","extern")) {
+      if(token.in(keyword,"class","goto","extern","alias")) {
 	switch(keyword) {
 	  case 0:
 	    return parseClass(scope);
@@ -438,6 +438,28 @@ public:
 	  {
 	    ptr = token.ptr;
 	    return parseFunction(scope);
+	  }
+	    break;
+	  case 3:
+	  {
+	    //Alias
+	    StringRef aliasName;
+	    expectToken(aliasName);
+	    skipWhitespace();
+	    StringRef aliasValue;
+	    expectToken(aliasValue);
+	    skipWhitespace();
+	    if(*ptr != ';') {
+	      return 0;
+	    }
+	    ptr++;
+	    AliasNode* val = new AliasNode();
+	    val->dest = aliasValue;
+	    if(!scope->add(aliasName,val)) {
+	      delete val;
+	      return 0;
+	    }
+	    return val;
 	  }
 	    break;
 	}

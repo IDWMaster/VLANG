@@ -10,7 +10,7 @@ using namespace libparse;
 
 
 enum NodeType {
-  Class, Scope, VariableDeclaration, AssignOp, Constant, BinaryExpression, VariableReference, Goto, Label, UnaryExpression, Function
+  Class, Scope, VariableDeclaration, AssignOp, Constant, BinaryExpression, VariableReference, Goto, Label, UnaryExpression, Function, Alias
 };
 enum ConstantType {
   Integer, String, Character
@@ -32,6 +32,12 @@ public:
 };
 
 
+class AliasNode:public Node {
+public:
+  StringRef dest;
+  AliasNode():Node(Alias) {
+  }
+};
 
 class ScopeNode:public Node {
 public:
@@ -47,7 +53,11 @@ public:
       }
       return 0;
     }else {
-      return tokens[name];
+      Node* rval = tokens[name];
+      if(rval->type == Alias) {
+	return resolve(((AliasNode*)rval)->dest);
+      }
+      return rval;
     }
   }
   bool add(const StringRef& name, Node* value) {
@@ -58,7 +68,6 @@ public:
     return false;
   }
 };
-
 
 
 
