@@ -185,6 +185,13 @@ public:
 	    while(*ptr && *ptr != ')') {
 	      Expression* exp = parseExpression(scope);
 	      skipWhitespace();
+	      if(*ptr != ')' && *ptr != ',') {
+		goto f_fail;
+	      }
+	      if(*ptr == ',') {
+		ptr++;
+		skipWhitespace();
+	      }
 	      if(!exp) {
 		goto f_fail;
 	      }
