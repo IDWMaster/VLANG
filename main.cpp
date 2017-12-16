@@ -175,6 +175,36 @@ public:
 	    return bexp;
 	  }
 	    break;
+	  case '(':
+	  {
+	    if(prev->type != VariableReference) {
+	      return 0;
+	    }
+	    FunctionCallNode* retval = new FunctionCallNode();
+	    retval->function = (VariableReferenceNode*)prev;
+	    while(*ptr && *ptr != ')') {
+	      Expression* exp = parseExpression(scope);
+	      skipWhitespace();
+	      if(!exp) {
+		goto f_fail;
+	      }
+	      retval->args.push_back(exp);
+	    }
+	    
+	    if(*ptr == ')') {
+	      ptr++;
+	      skipWhitespace();
+	      return parseExpression(scope,retval);
+	    }
+	    f_fail:
+	    delete retval;
+	    return 0;
+	  }
+	    break;
+	  case ';':
+	    ptr++;
+	    return prev;
+	    break;
 	}
 	
 	return 0;
@@ -375,8 +405,15 @@ public:
 	skipWhitespace();
 	//Name
 	if(!expectToken(retval->name)) {
-	  delete retval;
-	  return 0;
+	  skipWhitespace();
+	  if(*ptr != '(') {
+	    delete retval;
+	    return 0;
+	  }else {
+	    //Function with no return type
+	    retval->name = retval->returnType;
+	    retval->returnType = "";
+	  }
 	}
 	skipWhitespace();
 	if(*ptr != '(') {

@@ -10,7 +10,7 @@ using namespace libparse;
 
 
 enum NodeType {
-  Class, Scope, VariableDeclaration, AssignOp, Constant, BinaryExpression, VariableReference, Goto, Label, UnaryExpression, Function, Alias
+  Class, Scope, VariableDeclaration, AssignOp, Constant, BinaryExpression, VariableReference, Goto, Label, UnaryExpression, Function, Alias, FunctionCall
 };
 enum ConstantType {
   Integer, String, Character
@@ -128,6 +128,8 @@ public:
 };
 
 
+
+
 class UnaryNode:public Expression {
 public:
   char op;
@@ -221,6 +223,18 @@ public:
   std::vector<Node*> operations;
   FunctionNode(ScopeNode* parent):Node(Function) {
     scope.parent = parent;
+  }
+};
+
+
+
+
+class FunctionCallNode:public Expression {
+public:
+  VariableReferenceNode* function;
+  std::vector<Expression*> args;
+  FunctionCallNode():Expression(FunctionCall) {
+    
   }
 };
 
