@@ -3,9 +3,116 @@
 #include <vector>
 #include <string>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sstream>
+#include <sys/stat.h>
 
 unsigned char* gencode(Node** nodes, size_t count, ScopeNode* scope, size_t* sz);
 
+class ValidationError {
+public:
+  std::string msg;
+  Node* node = 0;
+};
+
+class Verifier {
+public:
+  ScopeNode* rootScope;
+  ScopeNode* current;
+  std::vector<ValidationError> errors;
+  void error(Node* node, const std::string& msg) {
+    ValidationError error;
+    error.node = node;
+    error.msg = msg;
+    errors.push_back(error);
+  }
+  Verifier(ScopeNode* scope):rootScope(scope) {
+    current = scope;
+  }
+  bool validateExpression(Expression* exp) {
+    switch(exp->type) {
+      case Constant:
+      {
+	ConstantNode* cnode = (ConstantNode*)exp;
+	ClassNode* type = 0;
+	bool isptr = false;
+	switch(cnode->ctype) {
+	  case Character:
+	  {
+	    type = (ClassNode*)rootScope->resolve("char");
+	  }
+	    break;
+	  case Integer:
+	  {
+	    type = (ClassNode*)rootScope->resolve("int");
+	  }
+	    break;
+	  case String:
+	  {
+	    type = (ClassNode*)rootScope->resolve("char");
+	    isptr = true;
+	  }
+	    break;
+	}
+	cnode->returnType->type = type;
+	cnode->returnType->isPointer = isptr;
+	if(!type) {
+	  error(exp,"Build environment is grinning and holding a spatula.");
+	  return false;
+	}
+      }
+	return true;
+	  case BinaryExpression:
+	  {
+	    BinaryExpressionNode* bnode = (BinaryExpressionNode*)exp;
+	    if(!validateExpression(bnode->lhs) || !validateExpression(bnode->rhs)) {
+	      return false;
+	    }
+	    TypeInfo* baseinfo = bnode->lhs->returnType;
+	    if(bnode->lhs->returnType->isPointer != bnode->rhs->returnType->isPointer) {
+	      std::stringstream ss;
+	      ss<<"Cannot perform "<<bnode->GetFriendlyOpName()<<" on "<<(std::string)bnode->lhs->returnType->type->name;
+	      error(exp,ss.str());
+	      return false;
+	    }
+	    StringRef erence(&bnode->op,1);
+	    Node* m = baseinfo->type->scope.resolve(erence);
+	    if(m->type != Function) {
+	      
+	    }
+	    
+	  }
+	  error(exp,"COMPILER BUG: bexp not yet implemented");
+	    return false;
+    }
+    error(exp,"COMPILER BUG: Not yet implemented.");
+    return false;
+  }
+  bool validateNode(Node* node) {
+    switch(node->type) {
+	case AssignOp: //Illegal opcode (deprecated)
+	  return false;
+	case BinaryExpression:
+	case Constant:
+	case UnaryExpression:
+	case VariableReference:
+	{
+	  return validateExpression((Expression*)node);
+	}
+	  break;
+      }
+      error(node,"COMPILER BUG: Unsupported node");
+  }
+  bool validate(Node** instructions, size_t count) {
+    bool hasValidationErrors;
+    for(size_t i = 0;i<count;i++) {
+      if(!validateNode(instructions[i])) {
+	hasValidationErrors = true;
+      }
+    }
+    return !hasValidationErrors;
+  }
+};
 
 
 class VParser:public ParseTree {
@@ -34,8 +141,8 @@ public:
     a = b;
     b = tmp;
   }
-  Node* parseExpression(ScopeNode* scope, Node* prev = 0) {
-    Node* retval = 0;
+  Expression* parseExpression(ScopeNode* scope, Expression* prev = 0) {
+    Expression* retval = 0;
     skipWhitespace();
     if(prev) {
       char mander = *ptr;
@@ -48,7 +155,7 @@ public:
 	  case '*':
 	  case '/':
 	  {
-	    Node* rhs = parseExpression(scope);
+	    Expression* rhs = parseExpression(scope);
 	    if(!rhs) {
 	      return 0;
 	    }
@@ -100,7 +207,7 @@ public:
 	  ptr++;
 	  skipWhitespace();
 	  //TODO: Sub-expression.
-	  Node* subexp = parseExpression(scope,0);
+	  Expression* subexp = parseExpression(scope,0);
 	  if(subexp->type == BinaryExpression) {
 	    ((BinaryExpressionNode*)subexp)->parenthesized = true;
 	  }
@@ -170,18 +277,26 @@ public:
       skipWhitespace();
     }
     
+	  ClassNode* node = new ClassNode();
+	  node->scope.parent = parent;
     switch(*ptr) {
       case '{':
       {
 	ptr++;
 	skipWhitespace();
+	while(*ptr != '}') {
+	  Node* inst = parse(&node->scope);
+	  if(!inst) {
+	    delete node;
+	    return 0;
+	  }
+	  node->instructions.push_back(inst);
+	}
 	if(*ptr == '}') {
 	  ptr++;
-	  ClassNode* node = new ClassNode();
 	  node->align = align;
 	  node->name = name;
 	  node->size = size;
-	  node->scope.parent = parent;
 	  if(!parent->add(name,node)) {
 	    delete node;
 	    return 0;
@@ -207,6 +322,16 @@ public:
     return true;
   }
   bool expectToken(StringRef& out) {
+    out.ptr = ptr;
+    switch(*ptr) {
+      case '+':
+      case '-':
+      case '*':
+      case '/':
+	out.count = 1;
+	ptr++;
+	return true;
+    }
     if(!isalnum(*ptr)) {
       return false;
     }
@@ -229,6 +354,66 @@ public:
     
     return node;
   }
+  FunctionNode* parseFunction(ScopeNode* parentScope) {
+    FunctionNode* retval = new FunctionNode(parentScope);
+    while(*ptr) {
+      skipWhitespace();
+      StringRef token;
+      expectToken(token);
+      int keyword;
+      if(token.in(keyword,"extern")) {
+	switch(keyword) {
+	  case 0:
+	  {
+	    retval->isExtern = true;
+	  }
+	    break;
+	}
+      }else {
+	//Return type
+	retval->returnType = token;
+	skipWhitespace();
+	//Name
+	if(!expectToken(retval->name)) {
+	  delete retval;
+	  return 0;
+	}
+	skipWhitespace();
+	if(*ptr != '(') {
+	  delete retval;
+	  return 0;
+	}
+	ptr++;
+	//Argument
+	while(*ptr != ')' && *ptr) {
+	  VariableDeclarationNode* vardec = new VariableDeclarationNode();
+	  if(!expectToken(vardec->vartype)) {
+	    goto v_fail;
+	  }
+	  skipWhitespace();
+	  if(!expectToken(vardec->name)) {
+	    goto v_fail;
+	  }
+	  skipWhitespace();
+	  continue;
+	  v_fail:
+	  delete vardec;
+	  delete retval;
+	  return 0;
+	}
+	if(!*ptr) {
+	  return 0;
+	}
+	ptr++;
+	if(retval->isExtern && *ptr == ';') {
+	  ptr++;
+	  skipWhitespace();
+	  return retval;
+	}
+      }
+    }
+    
+  }
   int counter = 0;
   Node* parse(ScopeNode* scope) {
     skipWhitespace();
@@ -240,13 +425,19 @@ public:
       skipWhitespace();
       int keyword;
       std::string cval = token;
-      if(token.in(keyword,"class","goto")) {
+      if(token.in(keyword,"class","goto","extern")) {
 	switch(keyword) {
 	  case 0:
 	    return parseClass(scope);
 	  case 1:
 	  {
 	    return parseGoto();
+	  }
+	    break;
+	  case 2:
+	  {
+	    ptr = token.ptr;
+	    return parseFunction(scope);
 	  }
 	    break;
 	}
@@ -260,7 +451,7 @@ public:
 	  {
 	    ptr++;
 	    skipWhitespace();
-	    Node* expression = parseExpression(scope);
+	    Expression* expression = parseExpression(scope);
 	    if(expression) {
 	      BinaryExpressionNode* retval = new BinaryExpressionNode();
 	      VariableReferenceNode* varref = new VariableReferenceNode();
@@ -331,6 +522,7 @@ public:
   VParser(const char* code):ParseTree(code) {
    while(*ptr) {
     Node* instruction = parse(&scope);
+    skipWhitespace();
     if(instruction) {
     instructions.push_back(instruction);
     }else {
@@ -342,8 +534,25 @@ public:
 };
 
 int main(int argc, char** argv) {
-  const char* test = "class int .align 4 .size 4 { }\nclass byte .size 1 { }\nclass long .align 8 .size 8 { }\nint x = 5;dengo:\nint y = 2;\nint w = 5+2*7/5;goto dengo;";
-  VParser tounge(test);
+  struct stat us;
+  int fd = 0;
+  if(argc == 1) {
+    fd = open("testprog.vlang",O_RDONLY);
+  }else {
+    fd = open(argv[1],O_RDONLY);
+  }
+  fstat(fd,&us);
+  char* mander = new char[us.st_size];
+  char* ptr = mander;
+  while(us.st_size) {
+    size_t processed = read(fd,ptr,us.st_size);
+    us.st_size-=processed;
+    ptr+=processed;
+  }
+  close(fd);
+  
+  const char* test = "";
+  VParser tounge(mander);
   if(!tounge.error) {
     size_t sz;
     unsigned char* code = gencode(tounge.instructions.data(),tounge.instructions.size(),&tounge.scope,&sz);

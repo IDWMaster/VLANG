@@ -2,13 +2,15 @@
 #define TREE_HEADER
 #include "libparse/parser.h"
 #include <map>
+#include <sstream>
+#include <vector>
 
 
 using namespace libparse;
 
 
 enum NodeType {
-  Class, Scope, VariableDeclaration, AssignOp, Constant, BinaryExpression, VariableReference, Goto, Label, UnaryExpression
+  Class, Scope, VariableDeclaration, AssignOp, Constant, BinaryExpression, VariableReference, Goto, Label, UnaryExpression, Function
 };
 enum ConstantType {
   Integer, String, Character
@@ -82,6 +84,7 @@ class ClassNode:public Node {
 public:
   ScopeNode scope;
   StringRef name;
+  std::vector<Node*> instructions;
   void resolve() {
     //Resolve alignment and size requirements
     if(!size) {
@@ -98,15 +101,18 @@ public:
   }
 };
 
+
+
 class TypeInfo {
 public:
   bool isPointer;
   ClassNode* type;
+  
 };
 
 class Expression:public Node {
 public:
-  //virtual void getClass() = 0;
+  TypeInfo* returnType;
   Expression(const NodeType& type):Node(type) {
     
   }
@@ -116,7 +122,7 @@ public:
 class UnaryNode:public Expression {
 public:
   char op;
-  Node* operand;
+  Expression* operand;
 UnaryNode():Expression(UnaryExpression) {
 }
 };
@@ -128,15 +134,32 @@ public:
   int i32val;
 ConstantNode():Expression(Constant) {
 }
+
+
 };
 
 
 class BinaryExpressionNode:public Expression {
 public:
   char op;
-  Node* lhs;
-  Node* rhs;
+  Expression* lhs;
+  Expression* rhs;
   bool parenthesized;
+  const char* GetFriendlyOpName() {
+    switch(op) {
+      case '+':
+	return "addition";
+      case '-':
+	return "subtraction";
+	case '*':
+	return "multiplication";
+	case '/':
+	return "division";
+	case '=':
+	  return "assignment";
+    }
+    return "illegal expression";
+  }
   BinaryExpressionNode():Expression(BinaryExpression) {
     
   }
@@ -173,6 +196,22 @@ public:
   }
   VariableReferenceNode():Expression(VariableReference) {
     
+  }
+};
+
+
+
+
+class FunctionNode:public Node {
+public:
+  bool isExtern;
+  StringRef name;
+  StringRef returnType;
+  ScopeNode scope; //Primary scope of function
+  std::vector<VariableDeclarationNode*> args;
+  std::vector<Node*> operations;
+  FunctionNode(ScopeNode* parent):Node(Function) {
+    scope.parent = parent;
   }
 };
 
