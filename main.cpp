@@ -25,6 +25,7 @@ public:
     error.node = node;
     error.msg = msg;
     errors.push_back(error);
+    printf("%s\n",msg.data());
   }
   Verifier(ScopeNode* scope):rootScope(scope) {
     current = scope;
@@ -102,6 +103,7 @@ public:
 	  break;
       }
       error(node,"COMPILER BUG: Unsupported node");
+      return false;
   }
   bool validate(Node** instructions, size_t count) {
     bool hasValidationErrors;
@@ -620,9 +622,14 @@ int main(int argc, char** argv) {
   const char* test = "";
   VParser tounge(mander);
   if(!tounge.error) {
+    Verifier place(&tounge.scope);
+    if(place.validate(tounge.instructions.data(),tounge.instructions.size())) {
     size_t sz;
     unsigned char* code = gencode(tounge.instructions.data(),tounge.instructions.size(),&tounge.scope,&sz);
     write(STDIN_FILENO,code,sz);
+    }else {
+      printf("Compilation failed due to validation errors.\n");
+    }
   }else {
     printf("Unexpected end of file\n");
   }

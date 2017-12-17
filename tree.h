@@ -149,33 +149,7 @@ ConstantNode():Expression(Constant) {
 
 };
 
-
-class BinaryExpressionNode:public Expression {
-public:
-  char op;
-  Expression* lhs;
-  Expression* rhs;
-  bool parenthesized;
-  const char* GetFriendlyOpName() {
-    switch(op) {
-      case '+':
-	return "addition";
-      case '-':
-	return "subtraction";
-	case '*':
-	return "multiplication";
-	case '/':
-	return "division";
-	case '=':
-	  return "assignment";
-    }
-    return "illegal expression";
-  }
-  BinaryExpressionNode():Expression(BinaryExpression) {
-    
-  }
-};
-
+class BinaryExpressionNode;
 class VariableDeclarationNode:public Node {
 public:
   StringRef vartype;
@@ -237,5 +211,35 @@ public:
     
   }
 };
+
+
+class BinaryExpressionNode:public Expression {
+public:
+  char op;
+  Expression* lhs;
+  Expression* rhs;
+  bool parenthesized;
+  FunctionCallNode* function;
+  const char* GetFriendlyOpName() {
+    switch(op) {
+      case '+':
+	return "addition";
+      case '-':
+	return "subtraction";
+	case '*':
+	return "multiplication";
+	case '/':
+	return "division";
+	case '=':
+	  return "assignment";
+    }
+    return "illegal expression";
+  }
+  BinaryExpressionNode():Expression(BinaryExpression) {
+    
+  }
+};
+
+
 
 #endif
