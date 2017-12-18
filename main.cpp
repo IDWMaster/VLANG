@@ -55,9 +55,12 @@ public:
 	  }
 	    break;
 	}
+	cnode->returnType = new TypeInfo();
 	cnode->returnType->type = type;
 	cnode->returnType->isPointer = isptr;
 	if(!type) {
+	  delete cnode->returnType;
+	  cnode->returnType = 0;
 	  error(exp,"Build environment is grinning and holding a spatula.");
 	  return false;
 	}
@@ -78,16 +81,141 @@ public:
 	    }
 	    StringRef erence(&bnode->op,1);
 	    Node* m = baseinfo->type->scope.resolve(erence);
+	    if(!m) {
+	      std::stringstream ss;
+	      ss<<"Unable to resolve operator "<<(std::string)erence<<" on "<<(std::string)bnode->lhs->returnType->type->name;
+	      error(exp,ss.str());
+	      return false;
+	    }
 	    if(m->type != Function) {
-	      
+	      error(exp,"COMPILER BUG: Function call overloading not yet supported.");
+	      return false;
 	    }
 	    
 	  }
 	  error(exp,"COMPILER BUG: bexp not yet implemented");
 	    return false;
+	  case VariableReference:
+	  {
+	    VariableReferenceNode* varref = (VariableReferenceNode*)exp;
+	    if(!varref->resolve()) {
+	      return false;
+	    }
+	    validateNode(varref->variable);
+	    TypeInfo* tinfo = new TypeInfo();
+	    varref->returnType = tinfo;
+	    tinfo->type = varref->variable->rclass;
+	    tinfo->isPointer = varref->variable->isPointer;
+	    return true;
+	  }
+	    break;
     }
     error(exp,"COMPILER BUG: Not yet implemented.");
     return false;
+  }
+  bool validateClass(ClassNode* cls) {
+    if(cls->init) {
+      delete cls->init;
+      
+    }
+    FunctionNode* init = new FunctionNode(&cls->scope);
+    cls->init = init;
+    init->isExtern = false;
+    init->name = ".init";
+    init->operations = cls->instructions;
+    init->returnType = "";
+    current = &cls->scope;
+    return validate(init->operations.data(),init->operations.size());
+    
+  }
+  
+  bool validateFunction(FunctionNode* function) {
+    if(function->returnType.count) {
+      if(!function->returnType_resolved) {
+	ClassNode* n = resolveClass(function,&function->scope,function->returnType);
+	if(!n) {
+	  return false;
+	}
+	TypeInfo* tinfo = new TypeInfo();
+	tinfo->isPointer = function->returnType_isPointer;
+	tinfo->type = n;
+	function->returnType_resolved = tinfo;
+	
+      }
+    }
+    VariableDeclarationNode** args = function->args.data();
+	size_t argCount = function->args.size();
+	for(size_t i = 0;i<argCount;i++) {
+	  if(!validateNode(args[i])) {
+	    return false;
+	  }
+	}
+	if(!validate((Node**)function->args.data(),function->args.size())) {
+	  return false;
+	}
+	return validate(function->operations.data(),function->operations.size());
+  }
+  ClassNode* resolveClass(Node* node,ScopeNode* scope, const StringRef& variable) {
+    Node* n = scope->resolve(variable);
+    if(!n) {
+      goto e_nores;
+    }
+    if(n->type != Class) {
+      goto e_nores;
+    }
+    return (ClassNode*)n;
+    e_nores:
+    std::stringstream ss;
+    ss<<"Unable to resolve type named "<<(std::string)variable;
+    error(node,ss.str());
+    return 0;
+  }
+  bool validateDeclaration(VariableDeclarationNode* varnode) {
+    ClassNode* type = resolveClass(varnode,current,varnode->vartype);
+    if(!type) {
+      return false;
+    }
+    varnode->rclass = type;
+    if(varnode->assignment && !varnode->isValidatingAssignment) {
+      varnode->isValidatingAssignment = true;
+      bool rval = validateNode(varnode->assignment);
+      varnode->isValidatingAssignment = false;
+      return rval;
+    }
+    
+    return true;
+  }
+  bool validateFunctionCall(FunctionCallNode* call) {
+    if(!validateNode(call->function)) {
+      return false;
+    }
+    if(!call->function) {
+      std::stringstream ss;
+      ss<<(std::string)call->function->id<<" is not a function.";
+      error(call,ss.str());
+    }
+    Expression** args = call->args.data();
+    size_t argcount = call->args.size();
+    if(argcount != call->function->function->args.size()) {
+      std::stringstream ss;
+      ss<<"Invalid number of arguments to "<<(std::string)call->function->id<<". Expected "<<(int)call->function->function->args.size()<<", got "<<(int)call->args.size()<<".";
+      error(call,ss.str());
+      return false;
+    }
+    FunctionNode* function = call->function->function;
+    if(!validateNode(function)) {
+      return false;
+    }
+    VariableDeclarationNode** realArgs = function->args.data();
+    for(size_t i = 0;i<argcount;i++) {
+      if(realArgs[i]->rclass != args[i]->returnType->type) {
+	std::stringstream ss;
+	ss<<"Invalid argument type. Expected "<<(std::string)realArgs[i]->name<<", got "<<(std::string)args[i]->returnType->type->name<<".";
+	error(call,ss.str());
+      }
+    }
+    return true;
+    
   }
   bool validateNode(Node* node) {
     switch(node->type) {
@@ -101,6 +229,26 @@ public:
 	  return validateExpression((Expression*)node);
 	}
 	  break;
+	case Class:
+	{
+	  return validateClass((ClassNode*)node);
+	}
+	  break;
+	case Function:
+	{
+	  return validateFunction((FunctionNode*)node);
+	}
+	  break;
+	case VariableDeclaration:
+	{
+	  return validateDeclaration((VariableDeclarationNode*)node);
+	}
+	  break;
+	case FunctionCall:
+	  return validateFunctionCall((FunctionCallNode*)node);
+	  break;
+	case Alias: //NOP node.
+	  return true;
       }
       error(node,"COMPILER BUG: Unsupported node");
       return false;
@@ -454,6 +602,9 @@ public:
 	if(retval->isExtern && *ptr == ';') {
 	  ptr++;
 	  skipWhitespace();
+	  if(!scope.add(retval->name,retval)) {
+	    return 0;
+	  }
 	  return retval;
 	}
       }

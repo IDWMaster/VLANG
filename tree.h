@@ -89,11 +89,14 @@ public:
   }
 };
 
+class FunctionNode;
 class ClassNode:public Node {
 public:
   ScopeNode scope;
   StringRef name;
   std::vector<Node*> instructions;
+  FunctionNode* init = 0;
+  
   void resolve() {
     //Resolve alignment and size requirements
     if(!size) {
@@ -155,6 +158,7 @@ public:
   StringRef vartype;
   StringRef name;
   BinaryExpressionNode* assignment;
+  bool isValidatingAssignment = false;
   ClassNode* rclass = 0;
   bool isPointer = false;
   size_t reloffset;
@@ -167,13 +171,18 @@ class VariableReferenceNode:public Expression {
 public:
   ScopeNode* scope;
   StringRef id;
-  VariableDeclarationNode* variable;
+  VariableDeclarationNode* variable = 0;
+  FunctionNode* function = 0;
   bool resolve() {
     Node* n = scope->resolve(id);
     if(!n) {
       return false;
     }
     if(n->type != VariableDeclaration) {
+      if(n->type == Function) {
+	function = (FunctionNode*)n;
+	return true;
+      }
       return false;
     }
     variable = (VariableDeclarationNode*)n;
@@ -192,6 +201,8 @@ public:
   bool isExtern;
   StringRef name;
   StringRef returnType;
+  bool returnType_isPointer = false;
+  TypeInfo* returnType_resolved = 0;
   ScopeNode scope; //Primary scope of function
   std::vector<VariableDeclarationNode*> args;
   std::vector<Node*> operations;
