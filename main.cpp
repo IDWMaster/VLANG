@@ -101,6 +101,10 @@ public:
 	    if(!varref->resolve()) {
 	      return false;
 	    }
+	    if(varref->function) {
+	      varref->returnType = varref->function->returnType_resolved;
+	      return true;
+	    }
 	    validateNode(varref->variable);
 	    TypeInfo* tinfo = new TypeInfo();
 	    varref->returnType = tinfo;
@@ -110,7 +114,7 @@ public:
 	  }
 	    break;
     }
-    error(exp,"COMPILER BUG: Not yet implemented.");
+    error(exp,"COMPILER BUG: Unsupported expression type.");
     return false;
   }
   bool validateClass(ClassNode* cls) {
@@ -257,10 +261,10 @@ public:
     bool hasValidationErrors;
     for(size_t i = 0;i<count;i++) {
       if(!validateNode(instructions[i])) {
-	hasValidationErrors = true;
+	return false;
       }
     }
-    return !hasValidationErrors;
+    return true;
   }
 };
 
@@ -589,6 +593,7 @@ public:
 	    goto v_fail;
 	  }
 	  skipWhitespace();
+	  retval->args.push_back(vardec);
 	  continue;
 	  v_fail:
 	  delete vardec;
@@ -665,6 +670,7 @@ public:
 	StringRef token1;
 	expectToken(token1);
 	skipWhitespace();
+	const char* m_ptr = ptr;
 	switch(*ptr) {
 	  case '=':
 	  {
@@ -687,6 +693,7 @@ public:
 		delete vardec;
 		return 0;
 	      }
+	      retval->op = '=';
 	      return vardec;
 	    }
 	    
