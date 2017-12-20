@@ -91,10 +91,18 @@ public:
 	      error(exp,"COMPILER BUG: Function call overloading not yet supported.");
 	      return false;
 	    }
-	    
+	    FunctionNode* f = (FunctionNode*)m;
+	    FunctionCallNode* call = new FunctionCallNode();
+	    call->args.push_back(bnode->rhs);
+	    call->returnType = f->returnType_resolved;
+	    VariableReferenceNode* varref = new VariableReferenceNode();
+	    varref->function = f;
+	    varref->returnType = f->returnType_resolved;
+	    call->function = varref;
+	    bnode->function = call;
+	    bnode->returnType = bnode->function->returnType;
+	    return true;
 	  }
-	  error(exp,"COMPILER BUG: bexp not yet implemented");
-	    return false;
 	  case VariableReference:
 	  {
 	    VariableReferenceNode* varref = (VariableReferenceNode*)exp;
@@ -205,6 +213,11 @@ public:
       ss<<"Invalid number of arguments to "<<(std::string)call->function->id<<". Expected "<<(int)call->function->function->args.size()<<", got "<<(int)call->args.size()<<".";
       error(call,ss.str());
       return false;
+    }
+    for(size_t i = 0;i<argcount;i++) {
+      if(!validateExpression(args[i])) {
+	return false;
+      }
     }
     FunctionNode* function = call->function->function;
     if(!validateNode(function)) {
@@ -519,6 +532,7 @@ public:
       case '-':
       case '*':
       case '/':
+      case '=':
 	out.count = 1;
 	ptr++;
 	return true;
