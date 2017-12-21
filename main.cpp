@@ -97,6 +97,7 @@ public:
 	    call->returnType = f->returnType_resolved;
 	    VariableReferenceNode* varref = new VariableReferenceNode();
 	    varref->function = f;
+	    varref->id = f->name;
 	    varref->returnType = f->returnType_resolved;
 	    call->function = varref;
 	    bnode->function = call;
@@ -798,7 +799,7 @@ int main(int argc, char** argv) {
     if(place.validate(tounge.instructions.data(),tounge.instructions.size())) {
     size_t sz;
     unsigned char* code = gencode(tounge.instructions.data(),tounge.instructions.size(),&tounge.scope,&sz);
-    write(STDIN_FILENO,code,sz);
+    write(STDOUT_FILENO,code,sz);
     }else {
       printf("Compilation failed due to validation errors.\n");
     }
