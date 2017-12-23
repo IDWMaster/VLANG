@@ -55,13 +55,13 @@ public:
       ss<<(std::string)name<<"\\";
     }
   }
-  std::string mangle() {
+  std::string& mangle() {
     if(mangled_name.size()) {
       return mangled_name;
     }
     std::stringstream ss;
-    mangled_name = ss.str();
     __mangle(ss);
+    mangled_name = ss.str();
     return mangled_name;
   }
   ScopeNode():Node(Scope) {

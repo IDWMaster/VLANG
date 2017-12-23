@@ -779,9 +779,11 @@ public:
 int main(int argc, char** argv) {
   struct stat us;
   int fd = 0;
+  const char* filename = "testprog.vlang";
   if(argc == 1) {
-    fd = open("testprog.vlang",O_RDONLY);
+    fd = open(filename,O_RDONLY);
   }else {
+    filename = argv[1];
     fd = open(argv[1],O_RDONLY);
   }
   fstat(fd,&us);
@@ -796,7 +798,7 @@ int main(int argc, char** argv) {
   
   const char* test = "";
   VParser tounge(mander);
-  tounge.scope.name = argv[1];
+  tounge.scope.name = filename;
   if(!tounge.error) {
     Verifier place(&tounge.scope);
     if(place.validate(tounge.instructions.data(),tounge.instructions.size())) {
