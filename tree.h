@@ -43,6 +43,27 @@ class ScopeNode:public Node {
 public:
   ScopeNode* parent;
   std::map<StringRef,Node*> tokens;
+  StringRef name; //Optional name of scope
+  std::string mangled_name;
+  void __mangle(std::stringstream& ss) {
+    if(parent) {
+      parent->__mangle(ss);
+    }
+    if(name.count == 0) {
+      ss<<".";
+    }else {
+      ss<<(std::string)name<<"\\";
+    }
+  }
+  std::string mangle() {
+    if(mangled_name.size()) {
+      return mangled_name;
+    }
+    std::stringstream ss;
+    mangled_name = ss.str();
+    __mangle(ss);
+    return mangled_name;
+  }
   ScopeNode():Node(Scope) {
     parent = 0;
   }
@@ -206,6 +227,7 @@ public:
   ScopeNode scope; //Primary scope of function
   std::vector<VariableDeclarationNode*> args;
   std::vector<Node*> operations;
+  
   FunctionNode(ScopeNode* parent):Node(Function) {
     scope.parent = parent;
   }

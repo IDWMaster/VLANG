@@ -483,6 +483,7 @@ public:
     }
     
 	  ClassNode* node = new ClassNode();
+	  node->scope.name = name;
 	  node->scope.parent = parent;
     switch(*ptr) {
       case '{':
@@ -596,6 +597,7 @@ public:
 	  delete retval;
 	  return 0;
 	}
+	retval->scope.name = retval->name;
 	ptr++;
 	//Argument
 	while(*ptr != ')' && *ptr) {
@@ -794,6 +796,7 @@ int main(int argc, char** argv) {
   
   const char* test = "";
   VParser tounge(mander);
+  tounge.scope.name = argv[1];
   if(!tounge.error) {
     Verifier place(&tounge.scope);
     if(place.validate(tounge.instructions.data(),tounge.instructions.size())) {
