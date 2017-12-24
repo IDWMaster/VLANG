@@ -81,7 +81,22 @@ public:
 	    }
 	    StringRef erence(&bnode->op,1);
 	    Node* m = baseinfo->type->scope.resolve(erence);
+	    switch(bnode->lhs->type) {
+	      case VariableReference:
+	      {
+		((VariableReferenceNode*)bnode->lhs)->isReference = true;
+	      }
+		break;
+	      default:
+		error(exp,"Cannot get the memory address of an expression that does not resolve to a variable.");
+		return false;
+	    }
 	    if(!m) {
+	      if(bnode->op == '=') {
+		//Implicit assignment operator
+		bnode->function = 0; //No function pointer for implicit operations (UVM instrinsics).
+		return true;
+	      }
 	      std::stringstream ss;
 	      ss<<"Unable to resolve operator "<<(std::string)erence<<" on "<<(std::string)bnode->lhs->returnType->type->name;
 	      error(exp,ss.str());
@@ -94,13 +109,8 @@ public:
 	    FunctionNode* f = (FunctionNode*)m;
 	    FunctionCallNode* call = new FunctionCallNode();
 	    call->args.push_back(bnode->rhs);
-	    UnaryNode* addrof = new UnaryNode();
-	    addrof->op = '&';
-	    addrof->operand = bnode->lhs;
-	    TypeInfo* refType = new TypeInfo();
-	    refType->isPointer = true;
-	    refType->type = addrof->operand->returnType->type;
-	    call->args.push_back(addrof); //NOTE: The left-hand side of a BinaryExpression is always passed by reference (memory address) as a thisptr.
+	    call->args.push_back(bnode->lhs);
+	    
 	    call->returnType = f->returnType_resolved;
 	    VariableReferenceNode* varref = new VariableReferenceNode();
 	    varref->function = f;

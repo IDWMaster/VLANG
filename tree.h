@@ -194,6 +194,7 @@ public:
   StringRef id;
   VariableDeclarationNode* variable = 0;
   FunctionNode* function = 0;
+  bool isReference = false;
   bool resolve() {
     Node* n = scope->resolve(id);
     if(!n) {
