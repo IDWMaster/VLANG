@@ -94,6 +94,13 @@ public:
 	    FunctionNode* f = (FunctionNode*)m;
 	    FunctionCallNode* call = new FunctionCallNode();
 	    call->args.push_back(bnode->rhs);
+	    UnaryNode* addrof = new UnaryNode();
+	    addrof->op = '&';
+	    addrof->operand = bnode->lhs;
+	    TypeInfo* refType = new TypeInfo();
+	    refType->isPointer = true;
+	    refType->type = addrof->operand->returnType->type;
+	    call->args.push_back(addrof); //NOTE: The left-hand side of a BinaryExpression is always passed by reference (memory address) as a thisptr.
 	    call->returnType = f->returnType_resolved;
 	    VariableReferenceNode* varref = new VariableReferenceNode();
 	    varref->function = f;
@@ -496,6 +503,14 @@ public:
 	    delete node;
 	    return 0;
 	  }
+	  switch(inst->type) {
+	    case Function:
+	    {
+	      FunctionNode* func = (FunctionNode*)inst;
+	      func->thisType = node;
+	    }
+	      break;
+	  }
 	  node->instructions.push_back(inst);
 	}
 	if(*ptr == '}') {
@@ -798,7 +813,7 @@ int main(int argc, char** argv) {
   
   const char* test = "";
   VParser tounge(mander);
-  tounge.scope.name = filename;
+  tounge.scope.name = "global";
   if(!tounge.error) {
     Verifier place(&tounge.scope);
     if(place.validate(tounge.instructions.data(),tounge.instructions.size())) {

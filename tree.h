@@ -128,7 +128,7 @@ public:
     }
   }
   int align; //Required memory alignment for class (or 0 if undefined)
-  int size; //Required size for class (excluding padding) (or 0 if undefined)
+  size_t size; //Required size for class (excluding padding) (or 0 if undefined)
   ClassNode():Node(Class) {
     
   }
@@ -227,7 +227,7 @@ public:
   ScopeNode scope; //Primary scope of function
   std::vector<VariableDeclarationNode*> args;
   std::vector<Node*> operations;
-  
+  ClassNode* thisType = 0; //Type of "this" pointer, if applicable (must be passed as last argument to function if nonzero).
   FunctionNode(ScopeNode* parent):Node(Function) {
     scope.parent = parent;
   }
