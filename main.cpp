@@ -110,7 +110,6 @@ public:
 	    FunctionCallNode* call = new FunctionCallNode();
 	    call->args.push_back(bnode->rhs);
 	    call->args.push_back(bnode->lhs);
-	    
 	    call->returnType = f->returnType_resolved;
 	    VariableReferenceNode* varref = new VariableReferenceNode();
 	    varref->function = f;
@@ -448,7 +447,7 @@ public:
     }
     }
     skipWhitespace();
-    if(*ptr == ')') {
+    if(*ptr == ')' || *ptr == ',') {
       return retval;
     }
     if(*ptr == ';') {
@@ -635,6 +634,10 @@ public:
 	    goto v_fail;
 	  }
 	  skipWhitespace();
+	  if(*ptr == ',') {
+	    ptr++;
+	    skipWhitespace();
+	  }
 	  retval->args.push_back(vardec);
 	  continue;
 	  v_fail:
