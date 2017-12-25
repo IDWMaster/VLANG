@@ -82,9 +82,10 @@ public:
 	    StringRef erence(&bnode->op,1);
 	    Node* m = baseinfo->type->scope.resolve(erence);
 	    switch(bnode->lhs->type) {
+	      case Constant:
 	      case VariableReference:
 	      {
-		((VariableReferenceNode*)bnode->lhs)->isReference = true;
+		bnode->lhs->isReference = true;
 	      }
 		break;
 	      default:
