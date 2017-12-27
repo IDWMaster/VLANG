@@ -1,0 +1,16 @@
+class int .align 4 .size 4 {
+extern int +(int other);
+extern int -(int other);
+extern int *(int other);
+extern int /(int other);
+}
+class byte .size 1 {
+}
+class bool .size 1 {
+}
+alias char byte;
+class long .align 8 .size 8 {
+}
+extern print(int value);
+extern print(bool value);
+print(true);
