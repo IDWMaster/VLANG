@@ -13,7 +13,7 @@ enum NodeType {
   Class, Scope, VariableDeclaration, AssignOp, Constant, BinaryExpression, VariableReference, Goto, Label, UnaryExpression, Function, Alias, FunctionCall
 };
 enum ConstantType {
-  Integer, String, Character
+  Integer, String, Character, Boolean
 };
 class Node {
 public:
@@ -229,6 +229,27 @@ public:
   std::vector<VariableDeclarationNode*> args;
   std::vector<Node*> operations;
   ClassNode* thisType = 0; //Type of "this" pointer, if applicable (must be passed as last argument to function if nonzero).
+  FunctionNode* nextOverload = 0;
+  std::string mangled_name;
+  std::string& mangle() {
+    if(!mangled_name.size()) {
+    std::stringstream ss;
+    ss<<scope.mangle()<<"(";
+    size_t arglen;
+    VariableDeclarationNode** args;
+    args = this->args.data();
+    arglen = this->args.size();
+    for(size_t i = 0;i<arglen;i++) {
+      ss<<(std::string)args[i]->rclass->scope.mangle()<<"\\";
+    }
+    ss<<")";
+    if(returnType_resolved) {
+      ss<<returnType_resolved->type->scope.mangle();
+    }
+    mangled_name = ss.str();
+    }
+    return mangled_name;
+  }
   FunctionNode(ScopeNode* parent):Node(Function) {
     scope.parent = parent;
   }

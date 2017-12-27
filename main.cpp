@@ -54,6 +54,11 @@ public:
 	    isptr = true;
 	  }
 	    break;
+	  case Boolean:
+	  {
+	    type = (ClassNode*)rootScope->resolve("bool");
+	  }
+	    break;
 	}
 	cnode->returnType = new TypeInfo();
 	cnode->returnType->type = type;
@@ -215,6 +220,37 @@ public:
     
     return true;
   }
+  FunctionNode* resolveOverload(FunctionCallNode* call) {
+    FunctionNode* func = call->function->function;
+    resolve:
+    if(!validateNode(func)) {
+      return func;
+    }
+    //Argument counts must match (until we add support for default values)
+    if(func->args.size() != call->args.size()) {
+      if(!func->nextOverload) {
+	return func; //Best overload.
+      }
+      func = func->nextOverload;
+      goto resolve;
+    }
+    size_t argcount = call->args.size();
+    Expression** args = call->args.data();
+    VariableDeclarationNode** realArgs = func->args.data();
+    for(size_t i = 0;i<argcount;i++) {
+      if(!validateNode(args[i])) {
+	return func;
+      }
+      if(realArgs[i]->rclass != args[i]->returnType->type) {
+	if(!func->nextOverload) {
+	  return func;
+	}
+	func = func->nextOverload;
+	goto resolve;
+      }
+    }
+    return func;
+  }
   bool validateFunctionCall(FunctionCallNode* call) {
     if(!validateNode(call->function)) {
       return false;
@@ -226,9 +262,14 @@ public:
     }
     Expression** args = call->args.data();
     size_t argcount = call->args.size();
-    if(argcount != call->function->function->args.size()) {
+    FunctionNode* function = resolveOverload(call);
+    if(!validateNode(function)) {
+      return false;
+    }
+    call->function->function = function;
+    if(argcount != function->args.size()) {
       std::stringstream ss;
-      ss<<"Invalid number of arguments to "<<(std::string)call->function->id<<". Expected "<<(int)call->function->function->args.size()<<", got "<<(int)call->args.size()<<".";
+      ss<<"Invalid number of arguments to "<<(std::string)function->name<<". Expected "<<(int)function->args.size()<<", got "<<(int)call->args.size()<<".";
       error(call,ss.str());
       return false;
     }
@@ -237,16 +278,14 @@ public:
 	return false;
       }
     }
-    FunctionNode* function = call->function->function;
-    if(!validateNode(function)) {
-      return false;
-    }
+    
     VariableDeclarationNode** realArgs = function->args.data();
     for(size_t i = 0;i<argcount;i++) {
       if(realArgs[i]->rclass != args[i]->returnType->type) {
 	std::stringstream ss;
-	ss<<"Invalid argument type. Expected "<<(std::string)realArgs[i]->name<<", got "<<(std::string)args[i]->returnType->type->name<<".";
+	ss<<"Invalid argument type. Expected "<<(std::string)realArgs[i]->rclass->name<<", got "<<(std::string)args[i]->returnType->type->name<<".";
 	error(call,ss.str());
+	return false;
       }
     }
     return true;
@@ -419,6 +458,18 @@ public:
 	StringRef id;
 	if(!expectToken(id)) {
 	  return 0;
+	}
+	int match;
+	if(id.in(match,"true","false")) {
+	  switch(match) {
+	    case 0:
+	    {
+	      ConstantNode* tine = new ConstantNode();
+	      tine->ctype = Boolean;
+	      tine->i32val = match;
+	      return tine;
+	    }
+	  }
 	}
 	VariableReferenceNode* varref = new VariableReferenceNode();
 	varref->id = id;
@@ -654,7 +705,10 @@ public:
 	  ptr++;
 	  skipWhitespace();
 	  if(!scope.add(retval->name,retval)) {
-	    return 0;
+	    FunctionNode* onode = (FunctionNode*)scope.resolve(retval->name);
+	    //Add overload
+	    retval->nextOverload = onode->nextOverload;
+	    onode->nextOverload = retval;
 	  }
 	  return retval;
 	}
