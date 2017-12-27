@@ -460,9 +460,10 @@ public:
 	  return 0;
 	}
 	int match;
-	if(id.in(match,"true","false")) {
+	if(id.in(match,"false","true")) {
 	  switch(match) {
 	    case 0:
+	    case 1:
 	    {
 	      ConstantNode* tine = new ConstantNode();
 	      tine->ctype = Boolean;
