@@ -12,5 +12,7 @@ alias char byte;
 class long .align 8 .size 8 {
 }
 extern print(int value);
-extern print(bool value);
-print(true);
+int x = 5;
+int y = 2;
+int z = x-y;
+print(z);

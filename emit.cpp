@@ -123,7 +123,7 @@ void gencode_expression(Expression* expression, CompilerContext& context) {
       //Call function
       FunctionNode* func = call->function->function;
       
-      context.call(func->scope.mangle());
+      context.call(func->mangle());
     }
       break;
     case Constant:
