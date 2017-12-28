@@ -130,6 +130,9 @@ public:
 	  {
 	    VariableReferenceNode* varref = (VariableReferenceNode*)exp;
 	    if(!varref->resolve()) {
+	      std::stringstream ss;
+	      ss<<"Unable to resolve "<<(std::string)varref->id;
+	      error(varref,ss.str());
 	      return false;
 	    }
 	    if(varref->function) {
@@ -433,7 +436,6 @@ public:
 	  }
 	    break;
 	  case ';':
-	    ptr++;
 	    return prev;
 	    break;
 	}
