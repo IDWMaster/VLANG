@@ -347,6 +347,13 @@ public:
   int getRank(char mander) {
     int rank;
     switch(mander) {
+      case '=':
+	rank = -2;
+	break;
+      case '>':
+      case '<':
+	rank = -1;
+	break;
 	  case '-':
 	    rank = 0;
 	    break;
@@ -377,10 +384,13 @@ public:
 	skipWhitespace();
 	int rank = 0;
 	switch(mander) {
+	  case '<':
+	  case '>':
 	  case '+':
 	  case '-':
 	  case '*':
 	  case '/':
+	  case '=':
 	  {
 	    Expression* rhs = parseExpression(scope);
 	    if(!rhs) {
@@ -461,6 +471,7 @@ public:
 	if(!expectToken(id)) {
 	  return 0;
 	}
+	skipWhitespace();
 	int match;
 	if(id.in(match,"false","true")) {
 	  switch(match) {
@@ -614,6 +625,8 @@ public:
       case '*':
       case '/':
       case '=':
+      case '>':
+      case '<':
 	out.count = 1;
 	ptr++;
 	return true;
@@ -730,7 +743,7 @@ public:
       skipWhitespace();
       int keyword;
       std::string cval = token;
-      if(token.in(keyword,"class","goto","extern","alias")) {
+      if(token.in(keyword,"class","goto","extern","alias","if")) {
 	switch(keyword) {
 	  case 0:
 	    return parseClass(scope);
@@ -765,6 +778,86 @@ public:
 	      return 0;
 	    }
 	    return val;
+	  }
+	    break;
+	  case 4:
+	  {
+	    IfStatementNode* conditional = new IfStatementNode();
+	      conditional->scope_false.parent = scope;
+	      conditional->scope_true.parent = scope;
+	      if(*ptr != '(') {
+		goto err_condition;
+	      }
+	      ptr++;
+	      skipWhitespace();
+	      conditional->condition = parseExpression(scope);
+	      if(!conditional->condition) {
+		goto err_condition;
+	      }
+	      skipWhitespace();
+	      if(*ptr != ')') {
+		goto err_condition;
+	      }
+	      ptr++;
+	      skipWhitespace();
+	      if(*ptr != '{') {
+		goto err_condition;
+	      }
+	      ptr++;
+	      skipWhitespace();
+	      while(*ptr) {
+		if(*ptr == '}') {
+		  ptr++;
+		  skipWhitespace();
+		  StringRef token;
+		  if(expectToken(token)) {
+		    int id;
+		    if(!token.in(id,"else")) {
+		      ptr = token.ptr;
+		      return conditional;
+		    }else {
+		      //Parse else block
+		      skipWhitespace();
+		      if(*ptr != '{') {
+			goto err_condition;
+		      }
+		      ptr++;
+		      while(*ptr) {
+			if(*ptr == '}') {
+			  ptr++;
+			  skipWhitespace();
+			  return conditional;
+			}
+			Node* node = parse(&conditional->scope_false);
+			if(node) {
+			  conditional->instructions_false.push_back(node);
+			}else {
+			  if(*ptr != '}') {
+			    goto err_condition;
+			  }
+			}
+		      }
+		    }
+		  }else {
+		    return conditional;
+		  }
+		}else {
+		  Node* node = parse(&conditional->scope_true);
+			if(node) {
+			  conditional->instructions_true.push_back(node);
+			}else {
+			  if(*ptr != '}') {
+			    goto err_condition;
+			  }
+			}
+		}
+	      }
+	      err_condition:
+	      if(conditional->condition) {
+		delete conditional->condition;
+	      }
+	      delete conditional;
+	      return 0;
 	  }
 	    break;
 	}
