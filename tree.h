@@ -303,6 +303,7 @@ public:
   ScopeNode scope_false;
   LabelNode jmp_true;
   LabelNode jmp_false;
+  LabelNode jmp_end;
   Expression* condition;
 IfStatementNode():Node(IfStatement) {
 }

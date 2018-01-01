@@ -277,10 +277,16 @@ static void gencode_block(Node** nodes, size_t count, CompilerContext& context) 
 	context.add(&node->jmp_true);
 	//If clause
 	gencode_block(node->instructions_true.data(),node->instructions_true.size(),context);
+	//Jump past else statement
+	context.assembler->push(&one,1);
+	context.branch(&node->jmp_end);
+	//Else clause (label)
 	context.add(&node->jmp_false);
 	if(node->instructions_false.size()) {
 	  gencode_block(node->instructions_false.data(),node->instructions_false.size(),context);
 	}
+	//End of if/else block
+	context.add(&node->jmp_end);
       }
 	break;
       case Label:
