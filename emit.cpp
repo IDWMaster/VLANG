@@ -13,11 +13,18 @@ public:
   std::string name;
   size_t offset; //Offset into UAL bytecode
 };
+class PendingLabel {
+public:
+  LabelNode* label;
+  size_t offset;
+};
 class CompilerContext {
 public:
   std::vector<Import> ants;
   std::map<StringRef,size_t> functionTable;
   std::list<PendingFunction> pendingFunctionCalls;
+  std::list<PendingLabel> pendingLabels;
+  std::map<LabelNode*,size_t> labels;
   Assembly* assembler;
   ScopeNode* scope;
   void addExtern(StringRef name, int argcount, int outsize,  bool varargs = false) {
@@ -54,6 +61,9 @@ public:
     functionTable[name] = ants.size();
     ants.push_back(ant);
   }
+  void add(LabelNode* label) {
+    labels[label] = assembler->len;
+  }
   //Generate a linked assembly, to be freed with delete
   void link() {
     size_t oldlen = assembler->len; //Old length
@@ -70,6 +80,11 @@ public:
       int funcId = (int)functionTable[pfunc->name.data()];
       memcpy(assembler->bytecode+globalOffset+pfunc->offset,&funcId,sizeof(funcId));
     }
+    for(auto plabel = pendingLabels.begin();plabel != pendingLabels.end();plabel++) {
+      int offset = plabel->offset;
+      int realOffset = labels[plabel->label]+globalOffset;
+      memcpy(assembler->bytecode+globalOffset+offset,&realOffset,sizeof(realOffset));
+    }
   }
   void call(const std::string& mangledName) {
     PendingFunction pfunc;
@@ -85,6 +100,17 @@ public:
     assembler->call(0);
     assembler->setrsp();
     assembler->ret();
+  }
+  void branch(LabelNode* label) {
+    PendingLabel pending;
+    pending.label = label;
+    int zero = 0;
+    assembler->push(&zero,4);
+    pending.offset = assembler->len-4;
+    assembler->branch();
+    
+    pendingLabels.push_back(pending);
+    
   }
 };
 
@@ -177,18 +203,13 @@ void gencode_function_header(FunctionNode* func, CompilerContext& context) {
   }
 }
 
-void gencode_function(Node** nodes, size_t count, CompilerContext& context) {
-  ScopeNode* scope = context.scope;
-  Assembly* code = context.assembler;
-  size_t memalign = 1;
-  size_t stacksize = 0;
-  //Phase 0 -- Memory allocation
+static void block_memusage(CompilerContext& context,Node** nodes, size_t count, size_t& memalign, size_t& stacksize) {
   for(size_t i = 0;i<count;i++) {
     switch(nodes[i]->type) {
       case VariableDeclaration:
       {
 	VariableDeclarationNode* node = (VariableDeclarationNode*)nodes[i];
-	Node* res = scope->resolve(node->vartype);
+	Node* res = context.scope->resolve(node->vartype);
 	if(!res) {
 	  return;
 	}
@@ -213,15 +234,20 @@ void gencode_function(Node** nodes, size_t count, CompilerContext& context) {
 	stacksize+=vclass->size;
       }
 	break;
+      case IfStatement:
+      {
+	//Handle case for memory allocation inside if/else blocks
+	IfStatementNode* node = (IfStatementNode*)nodes[i];
+        block_memusage(context,node->instructions_true.data(),node->instructions_true.size(),memalign,stacksize);
+	block_memusage(context,node->instructions_false.data(),node->instructions_false.size(),memalign,stacksize);
+	
+      }
+	break;
     }
   }
-  //Allocate stack
-  code->getrsp();
-  code->push(&stacksize,sizeof(stacksize));
-  code->call(0);
-  code->setrsp();
-  
-  //Generate code for current function
+}
+
+static void gencode_block(Node** nodes, size_t count, CompilerContext& context) {
   for(size_t i = 0;i<count;i++) {
     switch(nodes[i]->type) {
       case VariableDeclaration:
@@ -232,13 +258,63 @@ void gencode_function(Node** nodes, size_t count, CompilerContext& context) {
 	}
       }
 	break;
+      case BinaryExpression:
       case FunctionCall:
       {
 	gencode_expression((Expression*)nodes[i],context);
       }
 	break;
+      case IfStatement:
+      {
+	//Push condition to stack
+	IfStatementNode* node = (IfStatementNode*)nodes[i];
+	gencode_expression(node->condition,context);
+	//Perform branch on condition true -- at this stage, assume that branch will NOT be taken.
+	context.branch(&node->jmp_true);
+	bool one = true;
+	context.assembler->push(&one,1); //Unconditional jump to else clause after branch to true.
+	context.branch(&node->jmp_false);
+	context.add(&node->jmp_true);
+	//If clause
+	gencode_block(node->instructions_true.data(),node->instructions_true.size(),context);
+	context.add(&node->jmp_false);
+	if(node->instructions_false.size()) {
+	  gencode_block(node->instructions_false.data(),node->instructions_false.size(),context);
+	}
+      }
+	break;
+      case Label:
+      {
+	context.add((LabelNode*)nodes[i]);
+      }
+	break;
+      case Goto:
+      {
+	bool one = true;
+	context.assembler->push(&one,1);
+	context.branch(((GotoNode*)nodes[i])->resolve(context.scope));
+      }
+	break;
     }
   }
+}
+
+
+void gencode_function(Node** nodes, size_t count, CompilerContext& context) {
+  ScopeNode* scope = context.scope;
+  Assembly* code = context.assembler;
+  size_t memalign = 1;
+  size_t stacksize = 0;
+  //Phase 0 -- Memory allocation
+  block_memusage(context,nodes,count,memalign,stacksize);
+  //Allocate stack
+  code->getrsp();
+  code->push(&stacksize,sizeof(stacksize));
+  code->call(0);
+  code->setrsp();
+  
+  //Generate code for current function
+  gencode_block(nodes,count,context);
   context.ret(stacksize);
   
   //Generate sub-nodes

@@ -294,6 +294,34 @@ public:
     return true;
     
   }
+  bool validateIfStatement(IfStatementNode* node) {
+    if(!validateExpression(node->condition)) {
+      return false;
+    }
+    size_t count = node->instructions_true.size();
+    Node** nodes = node->instructions_true.data();
+    for(size_t i = 0;i<count;i++) {
+      if(!validateNode(nodes[i])) {
+	return false;
+      }
+    }
+    count = node->instructions_false.size();
+    nodes = node->instructions_false.data();
+    for(size_t i = 0;i<count;i++) {
+      if(!validateNode(nodes[i])) {
+	return false;
+      }
+    }
+    return true;
+  }
+  bool validateGoto(GotoNode* dengo) {
+    if(!dengo->resolve(current)) {
+      std::stringstream ss;
+      ss<<"Unable to find "<<(std::string)dengo->target;
+      error(dengo,ss.str());
+    }
+    return true;
+  }
   bool validateNode(Node* node) {
     switch(node->type) {
 	case AssignOp: //Illegal opcode (deprecated)
@@ -326,6 +354,18 @@ public:
 	  break;
 	case Alias: //NOP node.
 	  return true;
+	case IfStatement:
+	  return validateIfStatement((IfStatementNode*)node);
+	case Label:
+	{
+	  return true;
+	}
+	  break;
+	case Goto:
+	{
+	  return validateGoto((GotoNode*)node);
+	}
+	  break;
       }
       error(node,"COMPILER BUG: Unsupported node");
       return false;
@@ -917,8 +957,6 @@ public:
 	    {
 	      ptr++;
 	      LabelNode* rval = new LabelNode();
-	      rval->id = counter;
-	      counter++;
 	      rval->name = token;
 	      if(!scope->add(rval->name,rval)) {
 		delete rval;

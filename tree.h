@@ -26,7 +26,6 @@ public:
 class LabelNode:public Node {
 public:
   StringRef name;
-  int id;
   LabelNode():Node(Label) {
   }
 };
@@ -302,6 +301,8 @@ public:
   std::vector<Node*> instructions_false; //Else branch
   ScopeNode scope_true;
   ScopeNode scope_false;
+  LabelNode jmp_true;
+  LabelNode jmp_false;
   Expression* condition;
 IfStatementNode():Node(IfStatement) {
 }
