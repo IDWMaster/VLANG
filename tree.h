@@ -315,6 +315,7 @@ WhileStatementNode():Node(WhileStatement) {
 }
   Expression* condition;
   ScopeNode scope;
+  Node* initializer;
   std::vector<Node*> body;
   LabelNode check;
   LabelNode begin; //Beginning of loop

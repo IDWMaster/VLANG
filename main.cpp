@@ -798,7 +798,7 @@ public:
       skipWhitespace();
       int keyword;
       std::string cval = token;
-      if(token.in(keyword,"class","goto","extern","alias","if","while")) {
+      if(token.in(keyword,"class","goto","extern","alias","if","while","for")) {
 	switch(keyword) {
 	  case 0:
 	    return parseClass(scope);
@@ -957,6 +957,83 @@ public:
 		
 	      }
 	      while_fail:
+	      delete retval;
+	      return 0;
+	    }
+	      break;
+	    case 6:
+	    {
+	      //While statement
+	      WhileStatementNode* retval = new WhileStatementNode();
+	      retval->scope.parent = scope;
+	      skipWhitespace();
+	      Node* incrementor = 0;
+	      if(*ptr != '(') {
+		goto for_fail;
+	      }
+	      ptr++;
+	      retval->initializer = parse(&retval->scope); //Initializer exists in scope of for loop body (inaccessible outside of for loop)
+	      
+	      skipWhitespace();
+	      if(*ptr != ';' && !retval->initializer) {
+		goto for_fail;
+	      }
+	      if(*ptr == ';') {
+	      ptr++;
+	      }
+	      skipWhitespace();
+	      retval->condition = parseExpression(&retval->scope,0);
+	      skipWhitespace();
+	      if(*ptr != ';' && !retval->condition) {
+		goto for_fail;
+	      }
+	      if(!retval->condition) {
+		ConstantNode* cnode = new ConstantNode();
+		cnode->ctype = Boolean;
+		cnode->i32val = 1;
+		cnode->isReference = false;
+		retval->condition = cnode;
+	      }
+	      if(*ptr == ';') {
+		ptr++;
+	      }
+	      skipWhitespace();
+	      incrementor = parse(&retval->scope);
+	      skipWhitespace();
+	      if(*ptr != ')') {
+		goto for_fail;
+	      }
+	      ptr++;
+	      skipWhitespace();
+	      
+	      if(*ptr != '{') {
+		goto for_fail;
+	      }
+	      ptr++;
+	      while(*ptr) {
+		skipWhitespace();
+		Node* node = parse(&retval->scope);
+		if(!node && *ptr != '}') {
+		  goto for_fail;
+		}
+		if(node) {
+		  retval->body.push_back(node);
+		}
+		skipWhitespace();
+		if(*ptr == '}') {
+		  ptr++;
+		  if(incrementor) {
+		    retval->body.push_back(incrementor);
+		  }
+		  return retval;
+		}
+		
+		
+	      }
+	      for_fail:
+		if(incrementor) {
+		  delete incrementor;
+		}
 	      delete retval;
 	      return 0;
 	    }

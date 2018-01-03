@@ -302,6 +302,11 @@ static void gencode_block(Node** nodes, size_t count, CompilerContext& context) 
       case WhileStatement:
       {
 	WhileStatementNode* node = (WhileStatementNode*)nodes[i];
+	if(node->initializer) {
+	  Node* rnodes[1];
+	  rnodes[0] = node->initializer;
+	  gencode_block(rnodes,1,context);
+	}
 	//Assume that branch will be taken
 	context.add(&node->check);
 	gencode_expression(node->condition,context);
