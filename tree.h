@@ -10,7 +10,7 @@ using namespace libparse;
 
 
 enum NodeType {
-  Class, Scope, VariableDeclaration, AssignOp, Constant, BinaryExpression, VariableReference, Goto, Label, UnaryExpression, Function, Alias, FunctionCall, IfStatement
+  Class, Scope, VariableDeclaration, AssignOp, Constant, BinaryExpression, VariableReference, Goto, Label, UnaryExpression, Function, Alias, FunctionCall, IfStatement, WhileStatement
 };
 enum ConstantType {
   Integer, String, Character, Boolean
@@ -309,5 +309,16 @@ IfStatementNode():Node(IfStatement) {
 }
 };
 
+class WhileStatementNode:public Node {
+public:
+WhileStatementNode():Node(WhileStatement) {
+}
+  Expression* condition;
+  ScopeNode scope;
+  std::vector<Node*> body;
+  LabelNode check;
+  LabelNode begin; //Beginning of loop
+  LabelNode end; //End of loop
+};
 
 #endif

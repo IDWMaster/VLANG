@@ -243,6 +243,12 @@ static void block_memusage(CompilerContext& context,Node** nodes, size_t count, 
 	
       }
 	break;
+      case WhileStatement:
+      {
+	WhileStatementNode* node = (WhileStatementNode*)nodes[i];
+	block_memusage(context,node->body.data(),node->body.size(),memalign,stacksize);
+      }
+	break;
     }
   }
 }
@@ -276,6 +282,8 @@ static void gencode_block(Node** nodes, size_t count, CompilerContext& context) 
 	context.branch(&node->jmp_false);
 	context.add(&node->jmp_true);
 	//If clause
+	ScopeNode* prevScope = context.scope;
+	context.scope = &node->scope_true;
 	gencode_block(node->instructions_true.data(),node->instructions_true.size(),context);
 	//Jump past else statement
 	context.assembler->push(&one,1);
@@ -283,10 +291,33 @@ static void gencode_block(Node** nodes, size_t count, CompilerContext& context) 
 	//Else clause (label)
 	context.add(&node->jmp_false);
 	if(node->instructions_false.size()) {
+	  context.scope = &node->scope_false;
 	  gencode_block(node->instructions_false.data(),node->instructions_false.size(),context);
 	}
+	context.scope = prevScope;
 	//End of if/else block
 	context.add(&node->jmp_end);
+      }
+	break;
+      case WhileStatement:
+      {
+	WhileStatementNode* node = (WhileStatementNode*)nodes[i];
+	//Assume that branch will be taken
+	context.add(&node->check);
+	gencode_expression(node->condition,context);
+	context.assembler->call(1);
+	context.branch(&node->end); //Exit while loop if condition is false
+	//Body of while loop
+	context.add(&node->begin);
+	ScopeNode* prevScope = context.scope;
+	context.scope = &node->scope;
+	gencode_block(node->body.data(),node->body.size(),context);
+	context.scope = prevScope;
+	bool one = true;
+	context.assembler->push(&one,1);
+	context.branch(&node->check); //Check condition again
+	//End of while loop
+	context.add(&node->end);
       }
 	break;
       case Label:
@@ -357,6 +388,7 @@ unsigned char* gencode(Node** nodes, size_t count, ScopeNode* scope, size_t* siz
   CompilerContext context;
   Assembly code;
   context.addExtern("__uvm_intrinsic_ptradd",2,-1);
+  context.addExtern("__uvm_intrinsic_not",1,1);
   context.assembler = &code;
   context.scope = scope;
   gencode_function(nodes,count,context);

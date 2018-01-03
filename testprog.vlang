@@ -15,9 +15,7 @@ class long .align 8 .size 8 {
 extern print(int value);
 extern print(bool value);
 int i = 0;
-loop:
-if(i<10) {
+while(i<10) {
 print(i+1);
 i = i+1;
-goto loop;
 }

@@ -322,6 +322,19 @@ public:
     }
     return true;
   }
+  bool validateWhileStatement(WhileStatementNode* node) {
+    if(!validateExpression(node->condition)) {
+      return false;
+    }
+    size_t count = node->body.size();
+    Node** nodes = node->body.data();
+    for(size_t i = 0;i<count;i++) {
+      if(!validateNode(nodes[i])) {
+	return false;
+      }
+    }
+    return true;
+  }
   bool validateNode(Node* node) {
     switch(node->type) {
 	case AssignOp: //Illegal opcode (deprecated)
@@ -366,6 +379,8 @@ public:
 	  return validateGoto((GotoNode*)node);
 	}
 	  break;
+	case WhileStatement:
+	  return validateWhileStatement((WhileStatementNode*)node);
       }
       error(node,"COMPILER BUG: Unsupported node");
       return false;
@@ -783,7 +798,7 @@ public:
       skipWhitespace();
       int keyword;
       std::string cval = token;
-      if(token.in(keyword,"class","goto","extern","alias","if")) {
+      if(token.in(keyword,"class","goto","extern","alias","if","while")) {
 	switch(keyword) {
 	  case 0:
 	    return parseClass(scope);
@@ -900,6 +915,52 @@ public:
 	      return 0;
 	  }
 	    break;
+	    case 5:
+	    {
+	      //While statement
+	      WhileStatementNode* retval = new WhileStatementNode();
+	      retval->scope.parent = scope;
+	      skipWhitespace();
+	      if(*ptr != '(') {
+		goto while_fail;
+	      }
+	      ptr++;
+	      retval->condition = parseExpression(scope,0);
+	      skipWhitespace();
+	      if(*ptr != ')') {
+		goto while_fail;
+	      }
+	      ptr++;
+	      skipWhitespace();
+	      if(!retval->condition) {
+		goto while_fail;
+	      }
+	      if(*ptr != '{') {
+		goto while_fail;
+	      }
+	      ptr++;
+	      while(*ptr) {
+		skipWhitespace();
+		Node* node = parse(&retval->scope);
+		if(!node && *ptr != '}') {
+		  goto while_fail;
+		}
+		if(node) {
+		  retval->body.push_back(node);
+		}
+		skipWhitespace();
+		if(*ptr == '}') {
+		  ptr++;
+		  return retval;
+		}
+		
+		
+	      }
+	      while_fail:
+	      delete retval;
+	      return 0;
+	    }
+	      break;
 	}
       }else {
 	if(isalnum(*ptr)) {
