@@ -137,6 +137,24 @@ void gencode_expression(Expression* expression, CompilerContext& context) {
       }
     }
       break;
+	  case UnaryExpression:
+	  {
+	    UnaryNode* node = (UnaryNode*)expression;
+	    if(node->function) {
+	      gencode_expression(node->operand,context);
+	      gencode_expression(node->function,context);
+	    }else {
+	      switch(node->op) {
+		case '&':
+		{
+		  node->operand->isReference = true;
+		  gencode_expression(node->operand,context);
+		}
+		  break;
+	      }
+	    }
+	  }
+	    break;
     case FunctionCall:
     {
       //Evaluate arguments
@@ -193,7 +211,7 @@ void gencode_function(Node** nodes, size_t count, CompilerContext& context);
 void gencode_function_header(FunctionNode* func, CompilerContext& context) {
   size_t returnSize = 0;
   if(func->returnType_resolved) {
-    returnSize = func->returnType_isPointer ? -1 : func->returnType_resolved->type->size;
+    returnSize = func->returnType_pointerLevels ? -1 : func->returnType_resolved->type->size;
   }
   if(func->isExtern) {
     context.addExtern(func->mangle().data(),func->args.size()+(func->thisType ? 1 : 0) ,returnSize,false); //TODO: Varargs language support
@@ -217,21 +235,23 @@ static void block_memusage(CompilerContext& context,Node** nodes, size_t count, 
 	  return;
 	}
 	ClassNode* vclass = (ClassNode*)res;
+	size_t align = node->pointerLevels ? sizeof(void*) : vclass->align;
+	size_t size= node->pointerLevels ? sizeof(void*) : vclass->size;
 	vclass->resolve();
 	node->rclass = vclass;
-	if(memalign % vclass->align) {
-	  if(vclass->align % memalign) {
-	    memalign = vclass->align*memalign;
+	if(memalign % align) {
+	  if(align % memalign) {
+	    memalign = align*memalign;
 	  }else {
-	    memalign = vclass->align;
+	    memalign = align;
 	  }
 	}
-	if(stacksize % vclass->align) {
+	if(stacksize % align) {
 	  //Add padding
-	  stacksize+=vclass->align-(stacksize % vclass->align);
+	  stacksize+=align-(stacksize % align);
 	}
 	node->reloffset = stacksize;
-	stacksize+=vclass->size;
+	stacksize+=size;
       }
 	break;
       case IfStatement:
@@ -264,6 +284,7 @@ static void gencode_block(Node** nodes, size_t count, CompilerContext& context) 
 	}
       }
 	break;
+      case UnaryExpression:
       case BinaryExpression:
       case FunctionCall:
       {

@@ -137,7 +137,7 @@ public:
 
 class TypeInfo {
 public:
-  bool isPointer;
+  int pointerLevels;
   ClassNode* type;
   
 };
@@ -154,13 +154,6 @@ public:
 
 
 
-class UnaryNode:public Expression {
-public:
-  char op;
-  Expression* operand;
-UnaryNode():Expression(UnaryExpression) {
-}
-};
 
 class ConstantNode:public Expression {
 public:
@@ -181,7 +174,7 @@ public:
   BinaryExpressionNode* assignment;
   bool isValidatingAssignment = false;
   ClassNode* rclass = 0;
-  bool isPointer = false;
+  int pointerLevels = 0;
   size_t reloffset;
   VariableDeclarationNode():Node(VariableDeclaration) {
   }
@@ -222,7 +215,7 @@ public:
   bool isExtern;
   StringRef name;
   StringRef returnType;
-  bool returnType_isPointer = false;
+  bool returnType_pointerLevels = false;
   TypeInfo* returnType_resolved = 0;
   ScopeNode scope; //Primary scope of function
   std::vector<VariableDeclarationNode*> args;
@@ -320,6 +313,16 @@ WhileStatementNode():Node(WhileStatement) {
   LabelNode check;
   LabelNode begin; //Beginning of loop
   LabelNode end; //End of loop
+};
+
+
+class UnaryNode:public Expression {
+public:
+  char op;
+  Expression* operand;
+  FunctionCallNode* function;
+UnaryNode():Expression(UnaryExpression) {
+}
 };
 
 #endif

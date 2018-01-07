@@ -36,7 +36,7 @@ public:
       {
 	ConstantNode* cnode = (ConstantNode*)exp;
 	ClassNode* type = 0;
-	bool isptr = false;
+	int isptr = 0;
 	switch(cnode->ctype) {
 	  case Character:
 	  {
@@ -51,7 +51,7 @@ public:
 	  case String:
 	  {
 	    type = (ClassNode*)rootScope->resolve("char");
-	    isptr = true;
+	    isptr = 1;
 	  }
 	    break;
 	  case Boolean:
@@ -62,7 +62,7 @@ public:
 	}
 	cnode->returnType = new TypeInfo();
 	cnode->returnType->type = type;
-	cnode->returnType->isPointer = isptr;
+	cnode->returnType->pointerLevels = isptr;
 	if(!type) {
 	  delete cnode->returnType;
 	  cnode->returnType = 0;
@@ -78,7 +78,7 @@ public:
 	      return false;
 	    }
 	    TypeInfo* baseinfo = bnode->lhs->returnType;
-	    if(bnode->lhs->returnType->isPointer != bnode->rhs->returnType->isPointer) {
+	    if(bnode->lhs->returnType->pointerLevels != bnode->rhs->returnType->pointerLevels) {
 	      std::stringstream ss;
 	      ss<<"Cannot perform "<<bnode->GetFriendlyOpName()<<" on "<<(std::string)bnode->lhs->returnType->type->name;
 	      error(exp,ss.str());
@@ -86,17 +86,8 @@ public:
 	    }
 	    StringRef erence(&bnode->op,1);
 	    Node* m = baseinfo->type->scope.resolve(erence);
-	    switch(bnode->lhs->type) {
-	      case Constant:
-	      case VariableReference:
-	      {
-		bnode->lhs->isReference = true;
-	      }
-		break;
-	      default:
-		error(exp,"Cannot get the memory address of an expression that does not resolve to a variable.");
-		return false;
-	    }
+	    bnode->lhs->isReference = true;
+	    
 	    if(!m) {
 	      if(bnode->op == '=') {
 		//Implicit assignment operator
@@ -116,16 +107,56 @@ public:
 	    FunctionCallNode* call = new FunctionCallNode();
 	    call->args.push_back(bnode->rhs);
 	    call->args.push_back(bnode->lhs);
-	    call->returnType = f->returnType_resolved;
 	    VariableReferenceNode* varref = new VariableReferenceNode();
 	    varref->function = f;
 	    varref->id = f->name;
-	    varref->returnType = f->returnType_resolved;
 	    call->function = varref;
+	    call->function->scope = &baseinfo->type->scope;
+	    validateFunctionCall(call);
 	    bnode->function = call;
 	    bnode->returnType = bnode->function->returnType;
 	    return true;
 	  }
+	      case UnaryExpression:
+	      {
+		UnaryNode* unode = (UnaryNode*)exp;
+		if(!validateExpression(unode->operand)) {
+		  return false;
+		}
+		TypeInfo* baseinfo = unode->operand->returnType;
+		StringRef erence(&unode->op,1);
+		if(!baseinfo->type->scope.resolve(erence)) {
+		  if(unode->op == '&' && unode->operand->type == VariableReference) {
+		    unode->function = 0;
+		    unode->returnType = new TypeInfo();
+		    unode->returnType->pointerLevels = 1;
+		    unode->returnType->type = unode->operand->returnType->type;
+		    return true;
+		  }
+		  std::stringstream ss;
+		  ss<<"Unable to resolve "<<unode->op<<" on "<<(std::string)unode->operand->returnType->type->name;
+		  error(unode,ss.str());
+		  return false;
+		}
+		unode->returnType = unode->operand->returnType;
+		FunctionCallNode* call = new FunctionCallNode();
+		call->args.push_back(unode->operand);
+		call->function = new VariableReferenceNode();
+		call->function->scope = current;
+		call->function->id = StringRef(&unode->op,1);
+		ScopeNode* prev = current;
+		current = &baseinfo->type->scope;
+		if(!validateFunctionCall(call)) {
+		  current = prev;
+		  delete call;
+		  return false;
+		}
+		unode->returnType = call->returnType;
+		current = prev;
+		return true;
+		
+	      }
+		break;
 	  case VariableReference:
 	  {
 	    VariableReferenceNode* varref = (VariableReferenceNode*)exp;
@@ -143,7 +174,7 @@ public:
 	    TypeInfo* tinfo = new TypeInfo();
 	    varref->returnType = tinfo;
 	    tinfo->type = varref->variable->rclass;
-	    tinfo->isPointer = varref->variable->isPointer;
+	    tinfo->pointerLevels = varref->variable->pointerLevels;
 	    return true;
 	  }
 	    break;
@@ -175,7 +206,7 @@ public:
 	  return false;
 	}
 	TypeInfo* tinfo = new TypeInfo();
-	tinfo->isPointer = function->returnType_isPointer;
+	tinfo->pointerLevels = function->returnType_pointerLevels;
 	tinfo->type = n;
 	function->returnType_resolved = tinfo;
 	
@@ -291,6 +322,7 @@ public:
 	return false;
       }
     }
+    call->returnType = function->returnType_resolved;
     return true;
     
   }
@@ -430,6 +462,7 @@ public:
     a = b;
     b = tmp;
   }
+  int vParens = 0; //Virtual parenthesis levels
   Expression* parseExpression(ScopeNode* scope, Expression* prev = 0) {
     Expression* retval = 0;
     skipWhitespace();
@@ -536,7 +569,7 @@ public:
 	      ConstantNode* tine = new ConstantNode();
 	      tine->ctype = Boolean;
 	      tine->i32val = match;
-	      return tine;
+	      retval = tine;
 	    }
 	  }
 	}
@@ -563,11 +596,37 @@ public:
 	  ptr++;
 	  skipWhitespace();
 	  retval = subexp;
+	}else {
+	  //Various unary operations
+	  switch(*ptr) {
+	    case '*':
+	    case '&':
+	    {
+	      char op = *ptr;
+	      ptr++;
+	      skipWhitespace();
+	      //Memory address of expression
+	      vParens++;
+	      Expression* rhs = parseExpression(scope);
+	      vParens--;
+	      if(!rhs) {
+		return 0;
+	      }
+	      UnaryNode* unode = new UnaryNode();
+	      unode->op = op;
+	      unode->operand = rhs;
+	      retval = unode;
+	    }
+	      break;
+	  }
 	}
       }
     }
     }
     skipWhitespace();
+    if(vParens) {
+	return retval;
+    }
     if(*ptr == ')' || *ptr == ',') {
       return retval;
     }
@@ -575,6 +634,10 @@ public:
       ptr++;
       return retval;
     }else {
+      
+      if(!retval) {
+	return 0;
+      }
       return parseExpression(scope,retval);
     }
   }
@@ -787,6 +850,19 @@ public:
     }
     
   }
+  
+  bool parseTypeName(StringRef& type, int& ptrlevels) {
+    
+    if(!expectToken(type)) {
+      return false;
+    }
+    while(*ptr == '*') {
+      ptrlevels++;
+      ptr++;
+    }
+    return true;
+  }
+  
   int counter = 0;
   Node* parse(ScopeNode* scope) {
     skipWhitespace();
@@ -794,7 +870,8 @@ public:
     if(isalpha(current)) {
       //Have token
       StringRef token;
-      expectToken(token);
+      int ptrLevels = 0;
+      parseTypeName(token,ptrLevels);
       skipWhitespace();
       int keyword;
       std::string cval = token;
@@ -1059,6 +1136,7 @@ public:
 	      retval->lhs = varref;
 	      retval->rhs = expression;
 	      VariableDeclarationNode* vardec = new VariableDeclarationNode();
+	      vardec->pointerLevels = ptrLevels;
 	      varref->variable = vardec;
 	      vardec->assignment = retval;
 	      vardec->name = token1;
@@ -1079,6 +1157,7 @@ public:
 	    skipWhitespace();
 	    VariableDeclarationNode* retval = new VariableDeclarationNode();
 	    retval->name = token1;
+	    retval->pointerLevels = ptrLevels;
 	    retval->vartype = token;
 	    if(!scope->add(token1,retval)) {
 		delete retval;
