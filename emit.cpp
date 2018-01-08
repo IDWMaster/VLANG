@@ -150,6 +150,12 @@ void gencode_expression(Expression* expression, CompilerContext& context) {
 		  gencode_expression(node->operand,context);
 		}
 		  break;
+		case '*':
+		{
+		  gencode_expression(node->operand,context);
+		  context.assembler->load();
+		}
+		  break;
 	      }
 	    }
 	  }
@@ -199,7 +205,8 @@ void gencode_expression(Expression* expression, CompilerContext& context) {
 	  context.assembler->call(0);
 	  if(!varref->isReference) {
 	    //Read variable
-	    context.assembler->push(&varref->variable->rclass->size,sizeof(void*));
+	    size_t size = varref->variable->pointerLevels ? sizeof(void*) : varref->variable->rclass->size;
+	    context.assembler->push(&size,sizeof(void*));
 	    context.assembler->load();
 	  }
 	}
