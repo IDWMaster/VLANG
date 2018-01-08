@@ -152,11 +152,17 @@ void gencode_expression(Expression* expression, CompilerContext& context) {
 		  break;
 		case '*':
 		{
+		  size_t sz = node->operand->returnType->pointerLevels ? sizeof(void*) : node->operand->returnType->type->size;
+		  
 		  gencode_expression(node->operand,context);
+		  context.assembler->push(&sz,sizeof(void*));
 		  context.assembler->load();
 		}
 		  break;
 	      }
+	    }
+	    if(node->isReference) {
+	      context.assembler->vref();
 	    }
 	  }
 	    break;
