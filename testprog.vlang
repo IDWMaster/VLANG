@@ -14,10 +14,7 @@ class long .align 8 .size 8 {
 }
 extern print(int value);
 extern print(bool value);
-int x = 2;
-print(x+1);
 for(int i = 0;i<10;i = i+1) {
-print(i);
-int* addr = &i;
-print(*addr+1);
+int* ptr = &i;
+print(i+1);
 }

@@ -265,6 +265,7 @@ static void block_memusage(CompilerContext& context,Node** nodes, size_t count, 
       case WhileStatement:
       {
 	WhileStatementNode* node = (WhileStatementNode*)nodes[i];
+	block_memusage(context,&node->initializer,1,memalign,stacksize);
 	block_memusage(context,node->body.data(),node->body.size(),memalign,stacksize);
       }
 	break;
