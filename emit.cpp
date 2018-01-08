@@ -213,9 +213,9 @@ void gencode_function_header(FunctionNode* func, CompilerContext& context) {
     returnSize = func->returnType_pointerLevels ? -1 : func->returnType_resolved->type->size;
   }
   if(func->isExtern) {
-    context.addExtern(func->mangle().data(),func->args.size()+(func->thisType ? 1 : 0) ,returnSize,false); //TODO: Varargs language support
+    context.addExtern(func->mangle().data(),func->args.size() ,returnSize,false); //TODO: Varargs language support
   }else {
-    context.add(func->mangle().data(),func->args.size()+(func->thisType ? 1 : 0),returnSize,false); //TODO: Varargs language support
+    context.add(func->mangle().data(),func->args.size(),returnSize,false); //TODO: Varargs language support
     gencode_function(func->operations.data(),func->operations.size(),context);
   }
 }
