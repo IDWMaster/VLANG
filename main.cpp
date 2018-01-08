@@ -20,13 +20,19 @@ public:
   ScopeNode* rootScope;
   ScopeNode* current;
   std::vector<ValidationError> errors;
+  
+  bool silent = false;
   void error(Node* node, const std::string& msg) {
+    if(silent) {
+      return;
+    }
     ValidationError error;
     error.node = node;
     error.msg = msg;
     errors.push_back(error);
     printf("%s\n",msg.data());
   }
+  
   Verifier(ScopeNode* scope):rootScope(scope) {
     current = scope;
   }
@@ -87,7 +93,6 @@ public:
 	    StringRef erence(&bnode->op,1);
 	    Node* m = baseinfo->type->scope.resolve(erence);
 	    bnode->lhs->isReference = true;
-	    
 	    if(!m) {
 	      if(bnode->op == '=') {
 		//Implicit assignment operator
@@ -125,11 +130,30 @@ public:
 		}
 		TypeInfo* baseinfo = unode->operand->returnType;
 		StringRef erence(&unode->op,1);
-		if(!baseinfo->type->scope.resolve(erence)) {
+		FunctionCallNode* call = new FunctionCallNode();
+		call->args.push_back(unode->operand);
+		call->function = new VariableReferenceNode();
+		call->function->scope = &baseinfo->type->scope;
+		call->function->id = erence;
+		silent = true;
+		if(!validateFunctionCall(call)) {
+		  delete call;
+		  call = 0;
+		}
+		silent = false;
+		if(!call) {
 		  if(unode->op == '&' && unode->operand->type == VariableReference) {
 		    unode->function = 0;
 		    unode->returnType = new TypeInfo();
 		    unode->returnType->pointerLevels = 1;
+		    unode->returnType->type = unode->operand->returnType->type;
+		    return true;
+		  }
+		  if(unode->op == '*' && unode->operand->returnType->pointerLevels) {
+		    //Dereference a pointer
+		    unode->function = 0;
+		    unode->returnType = new TypeInfo();
+		    unode->returnType->pointerLevels = unode->operand->returnType->pointerLevels-1;
 		    unode->returnType->type = unode->operand->returnType->type;
 		    return true;
 		  }
@@ -138,21 +162,7 @@ public:
 		  error(unode,ss.str());
 		  return false;
 		}
-		unode->returnType = unode->operand->returnType;
-		FunctionCallNode* call = new FunctionCallNode();
-		call->args.push_back(unode->operand);
-		call->function = new VariableReferenceNode();
-		call->function->scope = current;
-		call->function->id = StringRef(&unode->op,1);
-		ScopeNode* prev = current;
-		current = &baseinfo->type->scope;
-		if(!validateFunctionCall(call)) {
-		  current = prev;
-		  delete call;
-		  return false;
-		}
 		unode->returnType = call->returnType;
-		current = prev;
 		return true;
 		
 	      }
@@ -701,6 +711,13 @@ public:
 	    {
 	      FunctionNode* func = (FunctionNode*)inst;
 	      func->thisType = node;
+	      VariableDeclarationNode* vardec = new VariableDeclarationNode();
+	      vardec->assignment = 0;
+	      vardec->pointerLevels = 1;
+	      vardec->name = "this";
+	      vardec->vartype = name;
+	      vardec->rclass = node;
+	      func->args.push_back(vardec);
 	    }
 	      break;
 	  }

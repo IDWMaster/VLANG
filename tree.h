@@ -232,7 +232,11 @@ public:
     args = this->args.data();
     arglen = this->args.size();
     for(size_t i = 0;i<arglen;i++) {
-      ss<<(std::string)args[i]->rclass->scope.mangle()<<"\\";
+      ss<<(std::string)args[i]->rclass->scope.mangle();
+      for(size_t c = 0;c<args[i]->pointerLevels;c++ /*This is how C++ was invented*/) {
+	ss<<'*';
+      }
+      ss<<"\\";
     }
     ss<<")";
     if(returnType_resolved) {

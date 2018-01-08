@@ -141,7 +141,6 @@ void gencode_expression(Expression* expression, CompilerContext& context) {
 	  {
 	    UnaryNode* node = (UnaryNode*)expression;
 	    if(node->function) {
-	      gencode_expression(node->operand,context);
 	      gencode_expression(node->function,context);
 	    }else {
 	      switch(node->op) {
