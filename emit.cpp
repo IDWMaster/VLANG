@@ -157,7 +157,8 @@ void gencode_expression(Expression* expression, CompilerContext& context) {
 		  
 		  gencode_expression(node->operand,context);
 		  context.assembler->push(&sz,sizeof(void*));
-		  context.assembler->load();
+		  //*ptr = someval doesn't work because it resolves to vref
+		  context.assembler->load(); //TODO: BUG HERE. We don't ALWAYS want to load a pointer when dereferencing it. Sometimes we just want a reference to this memory location, such as when storing something to a pointer....
 		}
 		  break;
 	      }
