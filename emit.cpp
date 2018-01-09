@@ -57,7 +57,7 @@ public:
     ant.name = name.ptr;
     ant.namelen = name.count;
     ant.outsize = outsize;
-    ant.offset = 0;
+    ant.offset = assembler->len;
     functionTable[name] = ants.size();
     ants.push_back(ant);
   }
@@ -219,7 +219,7 @@ void gencode_expression(Expression* expression, CompilerContext& context) {
 	  break;
   }
 }
-void gencode_function(Node** nodes, size_t count, CompilerContext& context);
+void gencode_function(Node** nodes, size_t count, CompilerContext& context, VariableDeclarationNode** args = 0, size_t arglen = 0);
 void gencode_function_header(FunctionNode* func, CompilerContext& context) {
   size_t returnSize = 0;
   if(func->returnType_resolved) {
@@ -229,7 +229,13 @@ void gencode_function_header(FunctionNode* func, CompilerContext& context) {
     context.addExtern(func->mangle().data(),func->args.size() ,returnSize,false); //TODO: Varargs language support
   }else {
     context.add(func->mangle().data(),func->args.size(),returnSize,false); //TODO: Varargs language support
-    gencode_function(func->operations.data(),func->operations.size(),context);
+    context.assembler->write((unsigned char)10);
+    ScopeNode* prev = context.scope;
+    context.scope = &func->scope;
+    VariableDeclarationNode** args = func->args.data();
+    size_t len = func->args.size();
+    gencode_function(func->operations.data(),func->operations.size(),context,args,len);
+    context.scope = prev;
   }
 }
 
@@ -376,19 +382,31 @@ static void gencode_block(Node** nodes, size_t count, CompilerContext& context) 
 }
 
 
-void gencode_function(Node** nodes, size_t count, CompilerContext& context) {
+void gencode_function(Node** nodes, size_t count, CompilerContext& context, VariableDeclarationNode** args, size_t arglen) {
   ScopeNode* scope = context.scope;
   Assembly* code = context.assembler;
   size_t memalign = 1;
   size_t stacksize = 0;
   //Phase 0 -- Memory allocation
+  if(args) {
+    block_memusage(context,(Node**)args,arglen,memalign,stacksize);
+  }
   block_memusage(context,nodes,count,memalign,stacksize);
+  
   //Allocate stack
   code->getrsp();
   code->push(&stacksize,sizeof(stacksize));
   code->call(0);
   code->setrsp();
-  
+  //Load arguments (if any)
+  if(args) {
+    for(size_t i = 0;i<arglen;i++) {
+      context.assembler->getrsp(); //Compute RSP+offset for each argument
+      context.assembler->push(&args[i]->reloffset,sizeof(void*));
+      context.assembler->call(0);
+      context.assembler->store(); //Store argument into address
+    }
+  }
   //Generate code for current function
   gencode_block(nodes,count,context);
   context.ret(stacksize);

@@ -4,6 +4,10 @@ extern int -(int other);
 extern int *(int other);
 extern int /(int other);
 extern bool <(int other);
+++() {
+print(*this);
+*this = *this+1;
+}
 }
 class byte .size 1 {
 }

@@ -131,6 +131,7 @@ public:
 		}
 		TypeInfo* baseinfo = unode->operand->returnType;
 		StringRef erence(&unode->op,unode->op2 ? 2 : 1);
+		
 		FunctionCallNode* call = new FunctionCallNode();
 		call->args.push_back(unode->operand);
 		call->function = new VariableReferenceNode();
@@ -141,6 +142,8 @@ public:
 		  delete call;
 		  call = 0;
 		}
+		
+		
 		silent = false;
 		if(!call) {
 		  if(unode->op == '&' && unode->operand->type == VariableReference) {
@@ -164,6 +167,7 @@ public:
 		  return false;
 		}
 		unode->returnType = call->returnType;
+		unode->function = call;
 		return true;
 		
 	      }
@@ -748,11 +752,14 @@ public:
 	      vardec->name = "this";
 	      vardec->vartype = name;
 	      vardec->rclass = node;
+	      func->scope.add(vardec->name,vardec);
 	      func->args.push_back(vardec);
 	    }
 	      break;
 	  }
 	  node->instructions.push_back(inst);
+	  
+	skipWhitespace();
 	}
 	if(*ptr == '}') {
 	  ptr++;
@@ -794,7 +801,20 @@ public:
       case '>':
       case '<':
 	out.count = 1;
+	char op = *ptr;
 	ptr++;
+	short word = ((short)op) | (((short)*ptr) << 8);
+	switch(word) {
+	  case 15678: //>=
+	      case 15676: //<=
+	      case 11051: //++
+	      case 11565: //--
+	      case 15659: //+=
+	      case 15661: //-=
+		ptr++;
+		out.count = 2;
+		break;
+	}
 	return true;
     }
     if(!isalnum(*ptr)) {
@@ -894,6 +914,39 @@ public:
 	  }
 	  return retval;
 	}
+	skipWhitespace();
+	if(*ptr != '{') 
+	{
+	  return 0;
+	}
+	ptr++;
+	skipWhitespace();
+	while(*ptr != '}') {
+	  if(!(*ptr)) {
+	    goto l_free;
+	  }
+	  Node* node = parse(&retval->scope);
+	  if(node) {
+	    retval->operations.push_back(node);
+	  }else {
+	    if(*ptr != '}') {
+	      goto l_free;
+	    }
+	  }
+	}
+	ptr++;
+	if(!scope.add(retval->name,retval)) {
+	    FunctionNode* onode = (FunctionNode*)scope.resolve(retval->name);
+	    //Add overload
+	    retval->nextOverload = onode->nextOverload;
+	    onode->nextOverload = retval;
+	  }
+	return retval;
+	l_free:
+	if(retval) {
+	  delete retval;
+	  return 0;
+	}
       }
     }
     
@@ -915,6 +968,17 @@ public:
   Node* parse(ScopeNode* scope) {
     skipWhitespace();
     char current = *ptr;
+    //Check if function
+    StringRef funcname;
+    if(expectToken(funcname)) {
+      skipWhitespace();
+      ptr = funcname.ptr;
+      FunctionNode* node = parseFunction(scope);
+      if(node) {
+	return node;
+      }
+    }
+    ptr = funcname.ptr;
     if(isalpha(current)) {
       //Have token
       StringRef token;
@@ -1239,7 +1303,7 @@ public:
 	}
       }
     }
-    return 0;
+    return parseExpression(scope);
   }
   std::vector<Node*> instructions;
   ScopeNode scope;
