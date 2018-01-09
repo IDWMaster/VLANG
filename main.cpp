@@ -90,7 +90,8 @@ public:
 	      error(exp,ss.str());
 	      return false;
 	    }
-	    StringRef erence(&bnode->op,1);
+	    
+	    StringRef erence(&bnode->op,bnode->op2 ? 2 : 1);
 	    Node* m = baseinfo->type->scope.resolve(erence);
 	    bnode->lhs->isReference = true;
 	    if(!m) {
@@ -129,7 +130,7 @@ public:
 		  return false;
 		}
 		TypeInfo* baseinfo = unode->operand->returnType;
-		StringRef erence(&unode->op,1);
+		StringRef erence(&unode->op,unode->op2 ? 2 : 1);
 		FunctionCallNode* call = new FunctionCallNode();
 		call->args.push_back(unode->operand);
 		call->function = new VariableReferenceNode();
@@ -158,7 +159,7 @@ public:
 		    return true;
 		  }
 		  std::stringstream ss;
-		  ss<<"Unable to resolve "<<unode->op<<" on "<<(std::string)unode->operand->returnType->type->name;
+		  ss<<"Unable to resolve "<<(std::string)erence<<" on "<<(std::string)unode->operand->returnType->type->name;
 		  error(unode,ss.str());
 		  return false;
 		}
@@ -481,6 +482,7 @@ public:
 	ptr++;
 	skipWhitespace();
 	int rank = 0;
+	char op2 = 0;
 	switch(mander) {
 	  case '<':
 	  case '>':
@@ -490,12 +492,38 @@ public:
 	  case '/':
 	  case '=':
 	  {
+	    short word = (short)mander | (((short)*ptr) << 8);
+	    switch(word) {
+	      case 15678: //>=
+	      case 15676: //<=
+	      case 11051: //++
+	      case 11565: //--
+	      case 15659: //+=
+	      case 15661: //-=
+	      {
+		op2 = *ptr;
+		ptr++;
+	      }
+		break;
+	    }
+	    switch(word) {
+	      case 11051:
+	      case 11565:
+	      {
+		UnaryNode* unode = new UnaryNode();
+		unode->op = mander;
+		unode->op2 = op2;
+		unode->operand = prev;
+		return unode;
+	      }
+	    }
 	    Expression* rhs = parseExpression(scope);
 	    if(!rhs) {
 	      return 0;
 	    }
 	    BinaryExpressionNode* bexp = new BinaryExpressionNode();
 	    bexp->op = mander;
+	    bexp->op2 = op2;
 	    bexp->lhs = prev;
 	    bexp->rhs = rhs;
 	    if(bexp->rhs->type == BinaryExpression) {
@@ -612,8 +640,11 @@ public:
 	    case '*':
 	    case '&':
 	    {
+	      
 	      char op = *ptr;
-	      ptr++;
+	      ptr++;  
+	      short word = (short)op | (((short)*ptr) << 8);
+	      
 	      skipWhitespace();
 	      //Memory address of expression
 	      vParens++;

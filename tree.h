@@ -267,11 +267,16 @@ public:
 class BinaryExpressionNode:public Expression {
 public:
   char op;
+  char op2 = 0; //Second byte of op
   Expression* lhs;
   Expression* rhs;
   bool parenthesized;
   FunctionCallNode* function;
   const char* GetFriendlyOpName() {
+    short op = this->op;
+    if(op2) {
+      op = op | (op2 << 8);
+    }
     switch(op) {
       case '+':
 	return "addition";
@@ -283,6 +288,16 @@ public:
 	return "division";
 	case '=':
 	  return "assignment";
+	case 15678:
+	  return "greater than or equal to";
+	case 15676:
+	  return "less than or equal to";
+	case 11051:
+	case 15659:
+	return "increment";
+	case 11565:
+	case 15661:
+	  return "decrement";
     }
     return "illegal expression";
   }
@@ -323,6 +338,7 @@ WhileStatementNode():Node(WhileStatement) {
 class UnaryNode:public Expression {
 public:
   char op;
+  char op2 = 0;
   Expression* operand;
   FunctionCallNode* function;
 UnaryNode():Expression(UnaryExpression) {
