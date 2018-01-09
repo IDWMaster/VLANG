@@ -126,6 +126,8 @@ public:
 	      case UnaryExpression:
 	      {
 		UnaryNode* unode = (UnaryNode*)exp;
+		
+		unode->operand->isReference = true;
 		if(!validateExpression(unode->operand)) {
 		  return false;
 		}
@@ -139,6 +141,8 @@ public:
 		call->function->id = erence;
 		silent = true;
 		if(!validateFunctionCall(call)) {
+		  
+		unode->operand->isReference = false;
 		  delete call;
 		  call = 0;
 		}
