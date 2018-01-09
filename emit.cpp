@@ -156,15 +156,15 @@ void gencode_expression(Expression* expression, CompilerContext& context) {
 		  size_t sz = node->operand->returnType->pointerLevels ? sizeof(void*) : node->operand->returnType->type->size;
 		  
 		  gencode_expression(node->operand,context);
+		  if(!node->isReference) {
 		  context.assembler->push(&sz,sizeof(void*));
 		  //*ptr = someval doesn't work because it resolves to vref
 		  context.assembler->load(); //TODO: BUG HERE. We don't ALWAYS want to load a pointer when dereferencing it. Sometimes we just want a reference to this memory location, such as when storing something to a pointer....
-		}
+		
+		  }
+		  }
 		  break;
 	      }
-	    }
-	    if(node->isReference) {
-	      context.assembler->vref();
 	    }
 	  }
 	    break;
