@@ -290,7 +290,7 @@ public:
       if(!validateNode(args[i])) {
 	return func;
       }
-      if(realArgs[i]->rclass != args[i]->returnType->type) {
+      if((realArgs[i]->rclass != args[i]->returnType->type) || (realArgs[i]->pointerLevels != (args[i]->returnType->pointerLevels + args[i]->isReference))) {
 	if(!func->nextOverload) {
 	  return func;
 	}
@@ -330,7 +330,7 @@ public:
     
     VariableDeclarationNode** realArgs = function->args.data();
     for(size_t i = 0;i<argcount;i++) {
-      if(realArgs[i]->rclass != args[i]->returnType->type) {
+      if((realArgs[i]->rclass != args[i]->returnType->type) || (realArgs[i]->pointerLevels != (args[i]->returnType->pointerLevels + args[i]->isReference))) {
 	std::stringstream ss;
 	ss<<"Invalid argument type. Expected "<<(std::string)realArgs[i]->rclass->name<<", got "<<(std::string)args[i]->returnType->type->name<<".";
 	error(call,ss.str());
