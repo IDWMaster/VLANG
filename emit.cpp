@@ -57,7 +57,7 @@ public:
     ant.name = name.ptr;
     ant.namelen = name.count;
     ant.outsize = outsize;
-    ant.offset = assembler->len;
+    ant.offset = assembler->len-4;
     functionTable[name] = ants.size();
     ants.push_back(ant);
   }
@@ -121,8 +121,9 @@ void gencode_expression(Expression* expression, CompilerContext& context) {
       BinaryExpressionNode* bexp = (BinaryExpressionNode*)expression;
       if(!bexp->function) 
       {
-	gencode_expression(bexp->lhs,context);
+	
 	gencode_expression(bexp->rhs,context);
+	gencode_expression(bexp->lhs,context);
 	switch(bexp->op) {
 	  case '=':
 	  {
@@ -229,7 +230,6 @@ void gencode_function_header(FunctionNode* func, CompilerContext& context) {
     context.addExtern(func->mangle().data(),func->args.size() ,returnSize,false); //TODO: Varargs language support
   }else {
     context.add(func->mangle().data(),func->args.size(),returnSize,false); //TODO: Varargs language support
-    context.assembler->write((unsigned char)10);
     ScopeNode* prev = context.scope;
     context.scope = &func->scope;
     VariableDeclarationNode** args = func->args.data();
