@@ -449,7 +449,13 @@ public:
 	    return false;
 	  }
 	  
-	  return validateExpression(n->retval);
+	  if(!validateExpression(n->retval)) {
+	    return false;
+	  }
+	  if((n->retval->returnType->pointerLevels != n->function->returnType_pointerLevels) || (n->retval->returnType->type != n->function->returnType_resolved->type)) {
+	    return false;
+	  }
+	  return true;
 	}
 	case WhileStatement:
 	  return validateWhileStatement((WhileStatementNode*)node);
