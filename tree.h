@@ -10,7 +10,7 @@ using namespace libparse;
 
 
 enum NodeType {
-  Class, Scope, VariableDeclaration, AssignOp, Constant, BinaryExpression, VariableReference, Goto, Label, UnaryExpression, Function, Alias, FunctionCall, IfStatement, WhileStatement
+  Class, Scope, VariableDeclaration, AssignOp, Constant, BinaryExpression, VariableReference, Goto, Label, UnaryExpression, Function, Alias, FunctionCall, IfStatement, WhileStatement, ReturnStatement
 };
 enum ConstantType {
   Integer, String, Character, Boolean
@@ -212,6 +212,7 @@ public:
 
 class FunctionNode:public Node {
 public:
+  size_t stackSize;
   bool isExtern;
   StringRef name;
   StringRef returnType;
@@ -343,6 +344,16 @@ public:
   FunctionCallNode* function;
 UnaryNode():Expression(UnaryExpression) {
 }
+};
+
+
+class ReturnStatementNode:public Node {
+public:
+  Expression* retval;
+  FunctionNode* function = 0;
+  ReturnStatementNode():Node(ReturnStatement) {
+  }
+  
 };
 
 #endif

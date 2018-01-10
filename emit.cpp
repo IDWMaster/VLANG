@@ -27,6 +27,7 @@ public:
   std::map<LabelNode*,size_t> labels;
   Assembly* assembler;
   ScopeNode* scope;
+  FunctionNode* currentFunction = 0;
   void addExtern(StringRef name, int argcount, int outsize,  bool varargs = false) {
     Import ant;
     ant.argcount = argcount;
@@ -221,6 +222,7 @@ void gencode_expression(Expression* expression, CompilerContext& context) {
 }
 void gencode_function(Node** nodes, size_t count, CompilerContext& context, VariableDeclarationNode** args = 0, size_t arglen = 0);
 void gencode_function_header(FunctionNode* func, CompilerContext& context) {
+  context.currentFunction = func;
   size_t returnSize = 0;
   if(func->returnType_resolved) {
     returnSize = func->returnType_pointerLevels ? -1 : func->returnType_resolved->type->size;
@@ -236,6 +238,7 @@ void gencode_function_header(FunctionNode* func, CompilerContext& context) {
     gencode_function(func->operations.data(),func->operations.size(),context,args,len);
     context.scope = prev;
   }
+  context.currentFunction = 0;
 }
 
 static void block_memusage(CompilerContext& context,Node** nodes, size_t count, size_t& memalign, size_t& stacksize) {
@@ -376,6 +379,13 @@ static void gencode_block(Node** nodes, size_t count, CompilerContext& context) 
 	context.branch(((GotoNode*)nodes[i])->resolve(context.scope));
       }
 	break;
+      case ReturnStatement:
+      {
+	ReturnStatementNode* ret = (ReturnStatementNode*)nodes[i];
+	gencode_expression(ret->retval,context);
+	context.ret(context.currentFunction->stackSize);
+      }
+	break;
     }
   }
 }
@@ -391,7 +401,9 @@ void gencode_function(Node** nodes, size_t count, CompilerContext& context, Vari
     block_memusage(context,(Node**)args,arglen,memalign,stacksize);
   }
   block_memusage(context,nodes,count,memalign,stacksize);
-  
+  if(context.currentFunction) {
+    context.currentFunction->stackSize = stacksize;
+  }
   //Allocate stack
   code->getrsp();
   code->push(&stacksize,sizeof(stacksize));

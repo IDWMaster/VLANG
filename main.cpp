@@ -241,6 +241,17 @@ public:
 	if(!validate((Node**)function->args.data(),function->args.size())) {
 	  return false;
 	}
+	Node** funcops = function->operations.data();
+	size_t len = function->operations.size();
+	for(size_t i = 0;i<len;i++) {
+	  switch(funcops[i]->type) {
+	    case ReturnStatement:
+	    {
+	      ((ReturnStatementNode*)funcops[i])->function = function;
+	    }
+	      break;
+	  }
+	}
 	return validate(function->operations.data(),function->operations.size());
   }
   ClassNode* resolveClass(Node* node,ScopeNode* scope, const StringRef& variable) {
@@ -430,6 +441,16 @@ public:
 	  return validateGoto((GotoNode*)node);
 	}
 	  break;
+	case ReturnStatement:
+	{
+	  ReturnStatementNode* n = ((ReturnStatementNode*)node);
+	  if(!n->function) {
+	    error(n,"Cannot return outside of a function.");
+	    return false;
+	  }
+	  
+	  return validateExpression(n->retval);
+	}
 	case WhileStatement:
 	  return validateWhileStatement((WhileStatementNode*)node);
       }
@@ -991,7 +1012,7 @@ public:
       skipWhitespace();
       int keyword;
       std::string cval = token;
-      if(token.in(keyword,"class","goto","extern","alias","if","while","for")) {
+      if(token.in(keyword,"class","goto","extern","alias","if","while","for","return")) {
 	switch(keyword) {
 	  case 0:
 	    return parseClass(scope);
@@ -1231,6 +1252,17 @@ public:
 	      return 0;
 	    }
 	      break;
+	      case 7:
+	      {
+		Expression* rval = parseExpression(scope);
+		if(!rval) {
+		  return 0;
+		}
+		ReturnStatementNode* rnode = new ReturnStatementNode();
+		rnode->retval = rval;
+		return rnode;
+	      }
+		break;
 	}
       }else {
 	if(isalnum(*ptr)) {
