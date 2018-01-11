@@ -174,7 +174,7 @@ public:
   StringRef name;
   BinaryExpressionNode* assignment;
   bool isValidatingAssignment = false;
-  bool skipValidateClassName = true;
+  bool skipValidateClassName = false;
   ClassNode* rclass = 0;
   int pointerLevels = 0;
   size_t reloffset;

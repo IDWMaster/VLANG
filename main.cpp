@@ -244,7 +244,6 @@ public:
       if(!function->returnType_resolved) {
 	ClassNode* n = resolveClass(function,&function->scope,function->returnType);
 	if(!n) {
-	  bool rval = validate(function->operations.data(),function->operations.size());
 	  currentFunction = prev;
 	  return false;
 	}
@@ -259,13 +258,11 @@ public:
 	size_t argCount = function->args.size();
 	for(size_t i = 0;i<argCount;i++) {
 	  if(!validateNode(args[i])) {
-	    bool rval = validate(function->operations.data(),function->operations.size());
 	    currentFunction = prev;
 	    return false;
 	  }
 	}
 	if(!validate((Node**)function->args.data(),function->args.size())) {
-	  bool rval = validate(function->operations.data(),function->operations.size());
 	  currentFunction = prev;
 	  return false;
 	}
