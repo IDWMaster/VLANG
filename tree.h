@@ -110,13 +110,14 @@ public:
 };
 
 class FunctionNode;
+class VariableDeclarationNode;
 class ClassNode:public Node {
 public:
   ScopeNode scope;
   StringRef name;
   std::vector<Node*> instructions;
   FunctionNode* init = 0;
-  
+  std::map<VariableDeclarationNode*,VariableDeclarationNode*> lambdaRemapTable;
   void resolve() {
     //Resolve alignment and size requirements
     if(!size) {
@@ -173,9 +174,11 @@ public:
   StringRef name;
   BinaryExpressionNode* assignment;
   bool isValidatingAssignment = false;
+  bool skipValidateClassName = true;
   ClassNode* rclass = 0;
   int pointerLevels = 0;
   size_t reloffset;
+  FunctionNode* function = 0;
   VariableDeclarationNode():Node(VariableDeclaration) {
   }
 };
@@ -220,6 +223,8 @@ public:
   TypeInfo* returnType_resolved = 0;
   ScopeNode scope; //Primary scope of function
   std::vector<VariableDeclarationNode*> args;
+  std::vector<VariableDeclarationNode*> vars; //All variable declared in this function scope
+  ClassNode* lambdaCapture = 0; //Anonymous lambda capture class
   std::vector<Node*> operations;
   ClassNode* thisType = 0; //Type of "this" pointer, if applicable (must be passed as last argument to function if nonzero).
   FunctionNode* nextOverload = 0;

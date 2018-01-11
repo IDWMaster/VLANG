@@ -19,6 +19,7 @@ class Verifier {
 public:
   ScopeNode* rootScope;
   ScopeNode* current;
+  FunctionNode* currentFunction = 0;
   std::vector<ValidationError> errors;
   
   bool silent = false;
@@ -194,6 +195,25 @@ public:
 	    varref->returnType = tinfo;
 	    tinfo->type = varref->variable->rclass;
 	    tinfo->pointerLevels = varref->variable->pointerLevels;
+	    if(currentFunction != varref->variable->function) {
+	      if(!currentFunction->lambdaCapture) {
+		currentFunction->lambdaCapture = new ClassNode();
+		currentFunction->lambdaCapture->name = "";
+	      }
+	      ClassNode* lambdaCapture = currentFunction->lambdaCapture;
+	      if(lambdaCapture->lambdaRemapTable.find(varref->variable) == lambdaCapture->lambdaRemapTable.end()) {
+	      VariableDeclarationNode* vardec = new VariableDeclarationNode();
+	      vardec->rclass = varref->variable->rclass;
+	      vardec->pointerLevels = varref->variable->pointerLevels;
+	      vardec->skipValidateClassName = true; //Don't validate class name against scope in case of conflicts.
+	      vardec->function = currentFunction;
+	      lambdaCapture->instructions.push_back(vardec);
+	      }
+	      varref->variable = lambdaCapture->lambdaRemapTable[varref->variable];
+	      
+	      error(varref,"Lambdas not yet supported... Stay tuned!");
+	      return false;
+	    }
 	    return true;
 	  }
 	    break;
@@ -213,15 +233,19 @@ public:
     init->operations = cls->instructions;
     init->returnType = "";
     current = &cls->scope;
-    return validate(init->operations.data(),init->operations.size());
+    return validateFunction(init);
     
   }
   
   bool validateFunction(FunctionNode* function) {
+    FunctionNode* prev = currentFunction;
+    currentFunction = function;
     if(function->returnType.count) {
       if(!function->returnType_resolved) {
 	ClassNode* n = resolveClass(function,&function->scope,function->returnType);
 	if(!n) {
+	  bool rval = validate(function->operations.data(),function->operations.size());
+	  currentFunction = prev;
 	  return false;
 	}
 	TypeInfo* tinfo = new TypeInfo();
@@ -235,10 +259,14 @@ public:
 	size_t argCount = function->args.size();
 	for(size_t i = 0;i<argCount;i++) {
 	  if(!validateNode(args[i])) {
+	    bool rval = validate(function->operations.data(),function->operations.size());
+	    currentFunction = prev;
 	    return false;
 	  }
 	}
 	if(!validate((Node**)function->args.data(),function->args.size())) {
+	  bool rval = validate(function->operations.data(),function->operations.size());
+	  currentFunction = prev;
 	  return false;
 	}
 	Node** funcops = function->operations.data();
@@ -250,9 +278,17 @@ public:
 	      ((ReturnStatementNode*)funcops[i])->function = function;
 	    }
 	      break;
+	    case VariableDeclaration:
+	    {
+	      ((VariableDeclarationNode*)funcops[i])->function = function;
+	      function->vars.push_back((VariableDeclarationNode*)funcops[i]);
+	    }
+	      break;
 	  }
 	}
-	return validate(function->operations.data(),function->operations.size());
+	bool rval = validate(function->operations.data(),function->operations.size());
+	currentFunction = prev;
+	return rval;
   }
   ClassNode* resolveClass(Node* node,ScopeNode* scope, const StringRef& variable) {
     Node* n = scope->resolve(variable);
@@ -270,11 +306,13 @@ public:
     return 0;
   }
   bool validateDeclaration(VariableDeclarationNode* varnode) {
+    if(!varnode->skipValidateClassName) {
     ClassNode* type = resolveClass(varnode,current,varnode->vartype);
     if(!type) {
       return false;
     }
     varnode->rclass = type;
+    }
     if(varnode->assignment && !varnode->isValidatingAssignment) {
       varnode->isValidatingAssignment = true;
       bool rval = validateNode(varnode->assignment);
@@ -783,6 +821,7 @@ public:
 	      vardec->name = "this";
 	      vardec->vartype = name;
 	      vardec->rclass = node;
+	      vardec->function = func;
 	      func->scope.add(vardec->name,vardec);
 	      func->args.push_back(vardec);
 	    }

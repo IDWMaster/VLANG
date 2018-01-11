@@ -21,8 +21,11 @@ extern print(int value);
 extern print(bool value);
 
 
-for(int i = 0;i<10;) {
-print(i++);
-int* ptr = &i;
-print(*ptr+1);
+int x = 5;
+printAndIncrementX() {
+int y = 2;
+print(x);
+x = x+1;
 }
+
+printAndIncrementX();
