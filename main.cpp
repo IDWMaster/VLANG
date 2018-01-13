@@ -207,12 +207,14 @@ public:
 	      vardec->pointerLevels = varref->variable->pointerLevels;
 	      vardec->skipValidateClassName = true; //Don't validate class name against scope in case of conflicts.
 	      vardec->function = currentFunction;
+	      vardec->isReference = true;
 	      lambdaCapture->instructions.push_back(vardec);
+	      lambdaCapture->lambdaRemapTable[varref->variable] = vardec;
 	      }
 	      varref->variable = lambdaCapture->lambdaRemapTable[varref->variable];
 	      
-	      error(varref,"Lambdas not yet supported... Stay tuned!");
-	      return false;
+	     // error(varref,"Lambdas not yet supported... Stay tuned!");
+	      //return false;
 	    }
 	    return true;
 	  }
@@ -233,12 +235,47 @@ public:
     init->operations = cls->instructions;
     init->returnType = "";
     current = &cls->scope;
+    
+    
+    
+    
+    //Resolve alignment and size requirements
+    
+    if(!cls->align) {
+      cls->align = 1;
+    }
+    Node** inst = cls->instructions.data();
+    size_t len = cls->instructions.size();
+    size_t minsize = 0;
+    for(size_t i = 0;i<len;i++) {
+      switch(inst[i]->type) {
+	case VariableDeclaration:
+	{
+	  VariableDeclarationNode* vdec = (VariableDeclarationNode*)inst[i];
+	  size_t size = (vdec->pointerLevels + vdec->isReference) ? sizeof(void*) : vdec->rclass->size;
+	  size_t align = ((vdec->pointerLevels + vdec->isReference) ? sizeof(void*) : vdec->rclass->align);
+	  minsize+=size;
+	  if(cls->align % align) {
+	    cls->align*=align;
+	  }
+	}
+	  break;
+      }
+    }
+    cls->size = cls->size>minsize ? cls->size : minsize;
+    if(!cls->size) {
+      cls->size = 1;
+    }
+    
+    
     return validateFunction(init);
     
   }
   
   bool validateFunction(FunctionNode* function) {
     FunctionNode* prev = currentFunction;
+    ScopeNode* prevScope = current;
+    current = &function->scope;
     currentFunction = function;
     if(function->returnType.count) {
       if(!function->returnType_resolved) {
@@ -259,11 +296,13 @@ public:
 	for(size_t i = 0;i<argCount;i++) {
 	  if(!validateNode(args[i])) {
 	    currentFunction = prev;
+	    current = prevScope;
 	    return false;
 	  }
 	}
 	if(!validate((Node**)function->args.data(),function->args.size())) {
 	  currentFunction = prev;
+	  current = prevScope;
 	  return false;
 	}
 	Node** funcops = function->operations.data();
@@ -284,7 +323,11 @@ public:
 	  }
 	}
 	bool rval = validate(function->operations.data(),function->operations.size());
+	if(function->lambdaCapture) {
+	  rval &= validateClass(function->lambdaCapture);
+	}
 	currentFunction = prev;
+	current = prevScope;
 	return rval;
   }
   ClassNode* resolveClass(Node* node,ScopeNode* scope, const StringRef& variable) {

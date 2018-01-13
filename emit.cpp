@@ -176,6 +176,22 @@ void gencode_expression(Expression* expression, CompilerContext& context) {
       for(size_t i = 0;i<argcount;i++) {
 	gencode_expression(args[i],context);
       }
+      if(call->function->function->lambdaCapture) {
+	//Lambda captured!
+	ClassNode* lambduh = call->function->function->lambdaCapture;
+	Node** duh = lambduh->instructions.data();
+	size_t len = lambduh->size;
+	for(size_t i = 0;i<len;i++) {
+	  switch(duh[i]->type) {
+	    case VariableDeclaration:
+	    {
+	      //Perform variable remap
+	      
+	    }
+	      break;
+	  }
+	}
+      }
       //Call function
       FunctionNode* func = call->function->function;
       
@@ -255,9 +271,8 @@ static void block_memusage(CompilerContext& context,Node** nodes, size_t count, 
 	  return;
 	}
 	ClassNode* vclass = (ClassNode*)res;
-	size_t align = node->pointerLevels ? sizeof(void*) : vclass->align;
-	size_t size= node->pointerLevels ? sizeof(void*) : vclass->size;
-	vclass->resolve();
+	size_t align = (node->pointerLevels+node->isReference) ? sizeof(void*) : vclass->align;
+	size_t size= (node->pointerLevels+node->isReference) ? sizeof(void*) : vclass->size;
 	node->rclass = vclass;
 	if(memalign % align) {
 	  if(align % memalign) {
@@ -402,6 +417,13 @@ void gencode_function(Node** nodes, size_t count, CompilerContext& context, Vari
   }
   block_memusage(context,nodes,count,memalign,stacksize);
   if(context.currentFunction) {
+    if(context.currentFunction->lambdaCapture) {
+      //Allocate memory for lambda
+      block_memusage(context,context.currentFunction->lambdaCapture->instructions.data(),context.currentFunction->lambdaCapture->instructions.size(),memalign,stacksize);
+    }
+  }
+  
+  if(context.currentFunction) {
     context.currentFunction->stackSize = stacksize;
   }
   //Allocate stack
@@ -416,6 +438,27 @@ void gencode_function(Node** nodes, size_t count, CompilerContext& context, Vari
       context.assembler->push(&args[i]->reloffset,sizeof(void*));
       context.assembler->call(0);
       context.assembler->store(); //Store argument into address
+    }
+  }
+  //Load lambda capture values
+  if(context.currentFunction) {
+    if(context.currentFunction->lambdaCapture) {
+      ClassNode* lambduh = context.currentFunction->lambdaCapture;
+      Node** duh = lambduh->instructions.data();
+      size_t len = lambduh->instructions.size();
+      for(size_t i = 0;i<len;i++) {
+	switch(duh[i]->type) {
+	  case VariableDeclaration:
+	  {
+	    VariableDeclarationNode* vardec = (VariableDeclarationNode*)duh[i];
+	    context.assembler->getrsp();
+	    context.assembler->push(&vardec->reloffset,sizeof(void*));
+	    context.assembler->call(0);
+	    context.assembler->store();
+	  }
+	    break;
+	}
+      }
     }
   }
   //Generate code for current function

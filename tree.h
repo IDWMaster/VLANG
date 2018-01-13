@@ -118,15 +118,6 @@ public:
   std::vector<Node*> instructions;
   FunctionNode* init = 0;
   std::map<VariableDeclarationNode*,VariableDeclarationNode*> lambdaRemapTable;
-  void resolve() {
-    //Resolve alignment and size requirements
-    if(!size) {
-      size = 1;
-    }
-    if(!align) {
-      align = 1;
-    }
-  }
   int align; //Required memory alignment for class (or 0 if undefined)
   size_t size; //Required size for class (excluding padding) (or 0 if undefined)
   ClassNode():Node(Class) {
@@ -178,11 +169,11 @@ public:
   ClassNode* rclass = 0;
   int pointerLevels = 0;
   size_t reloffset;
+  bool isReference = false; //True if this is a reference to a memory location (pointer-like object) rather than a value itself.
   FunctionNode* function = 0;
   VariableDeclarationNode():Node(VariableDeclaration) {
   }
 };
-
 
 class VariableReferenceNode:public Expression {
 public:
