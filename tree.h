@@ -157,7 +157,7 @@ ConstantNode():Expression(Constant) {
 
 
 };
-
+class VariableReferenceNode;
 class BinaryExpressionNode;
 class VariableDeclarationNode:public Node {
 public:
@@ -168,6 +168,7 @@ public:
   bool skipValidateClassName = false;
   ClassNode* rclass = 0;
   int pointerLevels = 0;
+  VariableReferenceNode* lambdaRef = 0;
   size_t reloffset;
   bool isReference = false; //True if this is a reference to a memory location (pointer-like object) rather than a value itself.
   FunctionNode* function = 0;

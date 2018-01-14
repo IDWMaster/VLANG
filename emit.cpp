@@ -180,13 +180,14 @@ void gencode_expression(Expression* expression, CompilerContext& context) {
 	//Lambda captured!
 	ClassNode* lambduh = call->function->function->lambdaCapture;
 	Node** duh = lambduh->instructions.data();
-	size_t len = lambduh->size;
+	size_t len = lambduh->instructions.size();
 	for(size_t i = 0;i<len;i++) {
 	  switch(duh[i]->type) {
 	    case VariableDeclaration:
 	    {
 	      //Perform variable remap
-	      
+	      VariableDeclarationNode* node = (VariableDeclarationNode*)duh[i];
+	      gencode_expression(node->lambdaRef,context);
 	    }
 	      break;
 	  }
@@ -228,9 +229,17 @@ void gencode_expression(Expression* expression, CompilerContext& context) {
 	  context.assembler->call(0);
 	  if(!varref->isReference) {
 	    //Read variable
+	    if(varref->variable->isReference) {
+	      //Dereference reference
+	      size_t size = sizeof(void*);
+	      context.assembler->push(&size,sizeof(void*));
+	      context.assembler->load();
+	    }
+	    
 	    size_t size = varref->variable->pointerLevels ? sizeof(void*) : varref->variable->rclass->size;
 	    context.assembler->push(&size,sizeof(void*));
 	    context.assembler->load();
+	    
 	  }
 	}
 	  break;
@@ -263,14 +272,7 @@ static void block_memusage(CompilerContext& context,Node** nodes, size_t count, 
       case VariableDeclaration:
       {
 	VariableDeclarationNode* node = (VariableDeclarationNode*)nodes[i];
-	Node* res = context.scope->resolve(node->vartype);
-	if(!res) {
-	  return;
-	}
-	if(res->type != Class) {
-	  return;
-	}
-	ClassNode* vclass = (ClassNode*)res;
+	ClassNode* vclass = node->rclass;
 	size_t align = (node->pointerLevels+node->isReference) ? sizeof(void*) : vclass->align;
 	size_t size= (node->pointerLevels+node->isReference) ? sizeof(void*) : vclass->size;
 	node->rclass = vclass;

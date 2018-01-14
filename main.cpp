@@ -207,7 +207,8 @@ public:
 	      vardec->pointerLevels = varref->variable->pointerLevels;
 	      vardec->skipValidateClassName = true; //Don't validate class name against scope in case of conflicts.
 	      vardec->function = currentFunction;
-	      vardec->isReference = true;
+	      vardec->isReference = true; //All lambdas capture by reference for now.
+	      vardec->lambdaRef = varref;
 	      lambdaCapture->instructions.push_back(vardec);
 	      lambdaCapture->lambdaRemapTable[varref->variable] = vardec;
 	      }
