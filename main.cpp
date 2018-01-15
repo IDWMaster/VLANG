@@ -77,11 +77,12 @@ public:
 	  return false;
 	}
       }
+      exp->validated = true;
 	return true;
 	  case BinaryExpression:
 	  {
 	    BinaryExpressionNode* bnode = (BinaryExpressionNode*)exp;
-	    if(!validateExpression(bnode->lhs) || !validateExpression(bnode->rhs)) {
+	    if(!validateNode(bnode->lhs) || !validateNode(bnode->rhs)) {
 	      return false;
 	    }
 	    TypeInfo* baseinfo = bnode->lhs->returnType;
@@ -99,6 +100,7 @@ public:
 	      if(bnode->op == '=') {
 		//Implicit assignment operator
 		bnode->function = 0; //No function pointer for implicit operations (UVM instrinsics).
+		bnode->validated = true;
 		return true;
 	      }
 	      std::stringstream ss;
@@ -119,9 +121,10 @@ public:
 	    varref->id = f->name;
 	    call->function = varref;
 	    call->function->scope = &baseinfo->type->scope;
-	    validateFunctionCall(call);
+	    validateNode(call);
 	    bnode->function = call;
 	    bnode->returnType = bnode->function->returnType;
+	    bnode->validated = true;
 	    return true;
 	  }
 	      case UnaryExpression:
@@ -129,7 +132,7 @@ public:
 		UnaryNode* unode = (UnaryNode*)exp;
 		
 		unode->operand->isReference = true;
-		if(!validateExpression(unode->operand)) {
+		if(!validateNode(unode->operand)) {
 		  return false;
 		}
 		TypeInfo* baseinfo = unode->operand->returnType;
@@ -141,7 +144,7 @@ public:
 		call->function->scope = &baseinfo->type->scope;
 		call->function->id = erence;
 		silent = true;
-		if(!validateFunctionCall(call)) {
+		if(!validateNode(call)) {
 		  
 		unode->operand->isReference = false;
 		  delete call;
@@ -156,6 +159,7 @@ public:
 		    unode->returnType = new TypeInfo();
 		    unode->returnType->pointerLevels = 1;
 		    unode->returnType->type = unode->operand->returnType->type;
+		    unode->validated = true;
 		    return true;
 		  }
 		  if(unode->op == '*' && unode->operand->returnType->pointerLevels) {
@@ -164,6 +168,7 @@ public:
 		    unode->returnType = new TypeInfo();
 		    unode->returnType->pointerLevels = unode->operand->returnType->pointerLevels-1;
 		    unode->returnType->type = unode->operand->returnType->type;
+		    unode->validated = true;
 		    return true;
 		  }
 		  std::stringstream ss;
@@ -188,6 +193,7 @@ public:
 	    }
 	    if(varref->function) {
 	      varref->returnType = varref->function->returnType_resolved;
+	      varref->validated = true;
 	      return true;
 	    }
 	    validateNode(varref->variable);
@@ -208,7 +214,7 @@ public:
 	      vardec->skipValidateClassName = true; //Don't validate class name against scope in case of conflicts.
 	      vardec->function = currentFunction;
 	      vardec->isReference = true; //All lambdas capture by reference for now.
-	      vardec->lambdaRef = varref;
+	      vardec->lambdaRef = varref->variable;
 	      lambdaCapture->instructions.push_back(vardec);
 	      lambdaCapture->lambdaRemapTable[varref->variable] = vardec;
 	      }
@@ -217,6 +223,7 @@ public:
 	     // error(varref,"Lambdas not yet supported... Stay tuned!");
 	      //return false;
 	    }
+	    exp->validated = true;
 	    return true;
 	  }
 	    break;
@@ -269,7 +276,7 @@ public:
     }
     
     
-    return validateFunction(init);
+    return validateNode(init);
     
   }
   
@@ -325,10 +332,11 @@ public:
 	}
 	bool rval = validate(function->operations.data(),function->operations.size());
 	if(function->lambdaCapture) {
-	  rval &= validateClass(function->lambdaCapture);
+	  rval &= validateNode(function->lambdaCapture);
 	}
 	currentFunction = prev;
 	current = prevScope;
+	function->validated = rval;
 	return rval;
   }
   ClassNode* resolveClass(Node* node,ScopeNode* scope, const StringRef& variable) {
@@ -358,9 +366,10 @@ public:
       varnode->isValidatingAssignment = true;
       bool rval = validateNode(varnode->assignment);
       varnode->isValidatingAssignment = false;
+      varnode->validated = rval;
       return rval;
     }
-    
+    varnode->validated = true;
     return true;
   }
   FunctionNode* resolveOverload(FunctionCallNode* call) {
@@ -417,7 +426,7 @@ public:
       return false;
     }
     for(size_t i = 0;i<argcount;i++) {
-      if(!validateExpression(args[i])) {
+      if(!validateNode(args[i])) {
 	return false;
       }
     }
@@ -432,11 +441,12 @@ public:
       }
     }
     call->returnType = function->returnType_resolved;
+    call->validated = true;
     return true;
     
   }
   bool validateIfStatement(IfStatementNode* node) {
-    if(!validateExpression(node->condition)) {
+    if(!validateNode(node->condition)) {
       return false;
     }
     size_t count = node->instructions_true.size();
@@ -461,10 +471,11 @@ public:
       ss<<"Unable to find "<<(std::string)dengo->target;
       error(dengo,ss.str());
     }
+    dengo->validated = true;
     return true;
   }
   bool validateWhileStatement(WhileStatementNode* node) {
-    if(!validateExpression(node->condition)) {
+    if(!validateNode(node->condition)) {
       return false;
     }
     size_t count = node->body.size();
@@ -474,9 +485,13 @@ public:
 	return false;
       }
     }
+    node->validated = true;
     return true;
   }
   bool validateNode(Node* node) {
+    if(node->validated) {
+      return true;
+    }
     switch(node->type) {
 	case AssignOp: //Illegal opcode (deprecated)
 	  return false;
@@ -507,11 +522,13 @@ public:
 	  return validateFunctionCall((FunctionCallNode*)node);
 	  break;
 	case Alias: //NOP node.
+	  node->validated = true;
 	  return true;
 	case IfStatement:
 	  return validateIfStatement((IfStatementNode*)node);
 	case Label:
 	{
+	  node->validated = true;
 	  return true;
 	}
 	  break;
@@ -534,6 +551,7 @@ public:
 	  if((n->retval->returnType->pointerLevels != n->function->returnType_pointerLevels) || (n->retval->returnType->type != n->function->returnType_resolved->type)) {
 	    return false;
 	  }
+	  n->validated = true;
 	  return true;
 	}
 	case WhileStatement:

@@ -22,9 +22,7 @@ extern print(bool value);
 int x = 5;
 int z = 1;
 printAndIncrementX() {
-int y = 7;
-print(x);
-x = x+1;
+print(z);
 print(x);
 }
 

@@ -185,9 +185,11 @@ void gencode_expression(Expression* expression, CompilerContext& context) {
 	  switch(duh[i]->type) {
 	    case VariableDeclaration:
 	    {
-	      //Perform variable remap
+	      //Pass memory address of variable to function.
 	      VariableDeclarationNode* node = (VariableDeclarationNode*)duh[i];
-	      gencode_expression(node->lambdaRef,context);
+	      context.assembler->getrsp();
+	      context.assembler->push(&node->lambdaRef->reloffset,sizeof(void*));
+	      context.assembler->call(0);
 	    }
 	      break;
 	  }
@@ -227,14 +229,18 @@ void gencode_expression(Expression* expression, CompilerContext& context) {
 	  context.assembler->getrsp(); //Offset relative to stack pointer
 	  context.assembler->push(&varref->variable->reloffset,sizeof(varref->variable->reloffset));
 	  context.assembler->call(0);
-	  if(!varref->isReference) {
-	    //Read variable
-	    if(varref->variable->isReference) {
+	  
+	  //If variable is a reference, get the memory address of the reference
+	  if(varref->variable->isReference) {
 	      //Dereference reference
 	      size_t size = sizeof(void*);
 	      context.assembler->push(&size,sizeof(void*));
 	      context.assembler->load();
 	    }
+	  
+	  if(!varref->isReference) {
+	    //Read variable
+	    
 	    
 	    size_t size = varref->variable->pointerLevels ? sizeof(void*) : varref->variable->rclass->size;
 	    context.assembler->push(&size,sizeof(void*));
