@@ -209,7 +209,7 @@ public:
 class FunctionNode:public Node {
 public:
   size_t stackSize;
-  bool isExtern;
+  bool isExtern = false;
   StringRef name;
   StringRef returnType;
   bool returnType_pointerLevels = false;
