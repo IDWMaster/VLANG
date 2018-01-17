@@ -526,6 +526,7 @@ public:
 	  return true;
 	case IfStatement:
 	  return validateIfStatement((IfStatementNode*)node);
+	case Nop:
 	case Label:
 	{
 	  node->validated = true;
@@ -1009,6 +1010,7 @@ public:
 	//Argument
 	while(*ptr != ')' && *ptr) {
 	  VariableDeclarationNode* vardec = new VariableDeclarationNode();
+	  vardec->function = retval;
 	  if(!expectToken(vardec->vartype)) {
 	    goto v_fail;
 	  }
@@ -1020,6 +1022,9 @@ public:
 	  if(*ptr == ',') {
 	    ptr++;
 	    skipWhitespace();
+	  }
+	  if(!retval->scope.add(vardec->name,vardec)) {
+	    goto v_fail;
 	  }
 	  retval->args.push_back(vardec);
 	  continue;
@@ -1097,6 +1102,10 @@ public:
   Node* parse(ScopeNode* scope) {
     skipWhitespace();
     char current = *ptr;
+    if(current == ';') {
+      ptr++;
+      return new Nope();
+    }
     //Check if function
     StringRef funcname;
     if(expectToken(funcname)) {

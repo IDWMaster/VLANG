@@ -10,7 +10,7 @@ using namespace libparse;
 
 
 enum NodeType {
-  Class, Scope, VariableDeclaration, AssignOp, Constant, BinaryExpression, VariableReference, Goto, Label, UnaryExpression, Function, Alias, FunctionCall, IfStatement, WhileStatement, ReturnStatement
+  Class, Scope, VariableDeclaration, AssignOp, Constant, BinaryExpression, VariableReference, Goto, Label, UnaryExpression, Function, Alias, FunctionCall, IfStatement, WhileStatement, ReturnStatement, Nop
 };
 enum ConstantType {
   Integer, String, Character, Boolean
@@ -22,6 +22,10 @@ public:
   Node(NodeType type):type(type) {
     
   }
+};
+class Nope:public Node {
+public:
+  Nope():Node(Nop) {}
 };
 
 class LabelNode:public Node {

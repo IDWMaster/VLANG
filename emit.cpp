@@ -186,7 +186,7 @@ void gencode_expression(Expression* expression, CompilerContext& context) {
 	    case VariableDeclaration:
 	    {
 	      //Pass memory address of variable to function.
-	      VariableDeclarationNode* node = (VariableDeclarationNode*)duh[i];
+	      VariableDeclarationNode* node = (VariableDeclarationNode*)duh[len-i-1];
 	      context.assembler->getrsp();
 	      context.assembler->push(&node->lambdaRef->reloffset,sizeof(void*));
 	      context.assembler->call(0);

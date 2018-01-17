@@ -1,3 +1,8 @@
+printnumbers(int x) {
+print(5);
+print(x);
+}
+
 class int .align 4 .size 4 {
 extern int +(int other);
 extern int -(int other);
@@ -21,9 +26,16 @@ extern print(bool value);
 
 int x = 5;
 int z = 1;
-printAndIncrementX() {
-print(z);
-print(x);
-}
 
-printAndIncrementX();
+
+
+printnumbers(95);
+
+
+printZAndIncrementX() {
+x++;
+print(z);
+}
+printZAndIncrementX();
+
+print(x);
