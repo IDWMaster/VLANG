@@ -168,7 +168,7 @@ class VariableDeclarationNode:public Node {
 public:
   StringRef vartype;
   StringRef name;
-  BinaryExpressionNode* assignment;
+  BinaryExpressionNode* assignment = 0;
   bool isValidatingAssignment = false;
   bool skipValidateClassName = false;
   ClassNode* rclass = 0;

@@ -174,7 +174,7 @@ void gencode_expression(Expression* expression, CompilerContext& context) {
       size_t argcount = call->args.size();
       Expression** args = call->args.data();
       for(size_t i = 0;i<argcount;i++) {
-	gencode_expression(args[i],context);
+	gencode_expression(args[argcount-i-1],context);
       }
       if(call->function->function->lambdaCapture) {
 	//Lambda captured!

@@ -1,6 +1,7 @@
-printnumbers(int x) {
-print(5);
+printnumbers(int x, int y, int z) {
 print(x);
+print(y);
+print(z);
 }
 
 class int .align 4 .size 4 {
@@ -29,13 +30,5 @@ int z = 1;
 
 
 
-printnumbers(95);
+printnumbers(95+1,42,1);
 
-
-printZAndIncrementX() {
-x++;
-print(z);
-}
-printZAndIncrementX();
-
-print(x);
