@@ -30,5 +30,5 @@ int z = 1;
 
 
 
-printnumbers(95+1,42,1);
+printnumbers(95+1,5+42,1);
 

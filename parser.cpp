@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <sstream>
 #include <sys/stat.h>
+#include "parser_api.h"
 
 unsigned char* gencode(Node** nodes, size_t count, ScopeNode* scope, size_t* sz);
 
@@ -1471,7 +1472,30 @@ public:
   }
 };
 
-int main(int argc, char** argv) {
+
+class CompilerContextImpl:public CompilerContext {
+public:
+  VParser* tounge = 0;
+  bool parse(const char* code,ScopeNode* parent, Node*** nodes, size_t* len) {
+    if(tounge) {
+      delete tounge;
+      tounge = 0;
+    }
+    tounge = new VParser(code);
+    tounge->scope.parent = parent;
+    *nodes = tounge->instructions.data();
+    *len = tounge->instructions.size();
+    return !tounge->error;
+  }
+  
+};
+
+CompilerContext* compiler_new() {
+  return new CompilerContextImpl();
+}
+
+
+void parse_main(int argc, char** argv) {
   struct stat us;
   int fd = 0;
   const char* filename = "testprog.vlang";
