@@ -573,6 +573,10 @@ public:
   }
 };
 
+class VParser;
+
+thread_local VParser* context;
+
 
 class VParser:public ParseTree {
 public:
@@ -1459,6 +1463,7 @@ public:
   ScopeNode scope;
   bool error = false;
   VParser(const char* code):ParseTree(code) {
+    context = this;
    while(*ptr) {
     Node* instruction = parse(&scope);
     skipWhitespace();
@@ -1471,6 +1476,19 @@ public:
    }
   }
 };
+
+thread_local std::map<const char*,Node*> lookup_table;
+
+
+void Node::put() {
+  if(context) {
+    location = context->ptr;
+    lookup_table[location] = this;
+  }
+}
+Node::~Node() {
+  lookup_table.erase(location);
+}
 
 
 class CompilerContextImpl:public ExternalCompilerContext {
@@ -1486,6 +1504,9 @@ public:
     *nodes = tounge->instructions.data();
     *len = tounge->instructions.size();
     return !tounge->error;
+  }
+  Node* resolve(const char* offset) {
+    return lookup_table[offset];
   }
   
 };
