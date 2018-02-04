@@ -1,11 +1,11 @@
 #include "tree.h"
 
 
-class CompilerContext {
+class ExternalCompilerContext {
 public:
   bool parse(const char* code,ScopeNode* parent, Node*** nodes, size_t* len);
-  virtual ~CompilerContext(){};
+  virtual ~ExternalCompilerContext(){};
 };
 
 
-CompilerContext* compiler_new();
+ExternalCompilerContext* compiler_new();

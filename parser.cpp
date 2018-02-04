@@ -1473,7 +1473,7 @@ public:
 };
 
 
-class CompilerContextImpl:public CompilerContext {
+class CompilerContextImpl:public ExternalCompilerContext {
 public:
   VParser* tounge = 0;
   bool parse(const char* code,ScopeNode* parent, Node*** nodes, size_t* len) {
@@ -1490,7 +1490,7 @@ public:
   
 };
 
-CompilerContext* compiler_new() {
+ExternalCompilerContext* compiler_new() {
   return new CompilerContextImpl();
 }
 
