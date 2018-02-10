@@ -17,12 +17,13 @@ enum ConstantType {
   Integer, String, Character, Boolean
 };
 
-
+class ScopeNode;
 class Node {
 public:
   bool validated = false;
   NodeType type;
-  const char* location;
+  const char* location = 0;
+  ScopeNode* node_scope = 0;
   Node(NodeType type):type(type) {
     put();
   }

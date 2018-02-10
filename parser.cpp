@@ -1464,6 +1464,7 @@ public:
   bool error = false;
   VParser(const char* code):ParseTree(code) {
     context = this;
+    scope.put();
    while(*ptr) {
     Node* instruction = parse(&scope);
     skipWhitespace();
