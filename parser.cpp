@@ -10,6 +10,8 @@
 
 unsigned char* gencode(Node** nodes, size_t count, ScopeNode* scope, size_t* sz);
 
+ExternalObject::~ExternalObject() {}
+
 class ValidationError {
 public:
   std::string msg;
@@ -1425,6 +1427,8 @@ public:
 	    retval->name = token1;
 	    retval->pointerLevels = ptrLevels;
 	    retval->vartype = token;
+        retval->move(token.ptr);
+
 	    if(!scope->add(token1,retval)) {
 		delete retval;
 		return 0;
@@ -1487,8 +1491,17 @@ void Node::put() {
     lookup_table[location] = this;
   }
 }
+void Node::move(const char* newloc) {
+    lookup_table.erase(location);
+    lookup_table[newloc] = this;
+    location = newloc;
+}
+
 Node::~Node() {
   lookup_table.erase(location);
+  if(ide_context) {
+    delete ide_context;
+  }
 }
 
 

@@ -17,6 +17,11 @@ enum ConstantType {
   Integer, String, Character, Boolean
 };
 
+class ExternalObject {
+public:
+    virtual ~ExternalObject();
+};
+
 class ScopeNode;
 class Node {
 public:
@@ -24,10 +29,14 @@ public:
   NodeType type;
   const char* location = 0;
   ScopeNode* node_scope = 0;
+  //NOTE: All values starting with ide_ are to be assigned by an IDE, and are not used by the compiler.
+  size_t ide_token_size = 0; //Size of token -- this value is NOT set by the compiler, and must be computed by the IDE.
+  ExternalObject* ide_context = 0;
   Node(NodeType type):type(type) {
     put();
   }
   void put();
+  void move(const char* newloc);
   ~Node();
 };
 
