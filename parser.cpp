@@ -1466,8 +1466,11 @@ public:
   std::vector<Node*> instructions;
   ScopeNode scope;
   bool error = false;
+  RefcountedString code;
   VParser(const char* code):ParseTree(code) {
     context = this;
+    this->code = std::string(code);
+    ptr = this->code.value->data();
     scope.put();
    while(*ptr) {
     Node* instruction = parse(&scope);
@@ -1489,12 +1492,14 @@ void Node::put() {
   if(context) {
     location = context->ptr;
     lookup_table[location] = this;
+    ide_coderef = context->code;
   }
 }
 void Node::move(const char* newloc) {
     lookup_table.erase(location);
     lookup_table[newloc] = this;
     location = newloc;
+    ide_coderef = context->code;
 }
 
 Node::~Node() {

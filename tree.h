@@ -16,6 +16,52 @@ enum ConstantType {
   Integer, String, Character, Boolean
 };
 
+class RefcountedString {
+public:
+    std::string* value;
+    int* refcount;
+    RefcountedString(const std::string& val) {
+        value = new std::string(val);
+        refcount = new int(1);
+    }
+    RefcountedString& operator=(const RefcountedString& other) {
+        if(other.value != value) {
+            this->~RefcountedString();
+        }
+        value = other.value;
+        refcount = other.refcount;
+        if(refcount) {
+          (*refcount)++;
+        }
+        return *this;
+    }
+
+    RefcountedString(const RefcountedString& other) {
+        value = other.value;
+        refcount = other.refcount;
+        if(refcount) {
+            (*refcount)++;
+        }
+    }
+    RefcountedString() {
+        refcount = 0;
+        value = 0;
+    }
+
+    ~RefcountedString() {
+        if(refcount) {
+            (*refcount)--;
+            if(*refcount == 0) {
+                delete refcount;
+                delete value;
+                refcount = 0;
+                value = 0;
+            }
+        }
+    }
+};
+
+
 class ExternalObject {
 public:
     virtual ~ExternalObject();
@@ -31,6 +77,7 @@ public:
   //NOTE: All values starting with ide_ are to be assigned by an IDE, and are not used by the compiler.
   size_t ide_token_size = 0; //Size of token -- this value is NOT set by the compiler, and must be computed by the IDE.
   ExternalObject* ide_context = 0;
+  RefcountedString ide_coderef;
   Node(NodeType type):type(type) {
     put();
   }
