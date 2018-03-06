@@ -1487,12 +1487,13 @@ public:
 
 thread_local std::map<const char*,Node*> lookup_table;
 
-
+static int nodecount = 0;
 void Node::put() {
   if(context) {
     location = context->ptr;
     lookup_table[location] = this;
     ide_coderef = context->code;
+    nodecount++;
   }
 }
 void Node::move(const char* newloc) {
@@ -1503,6 +1504,7 @@ void Node::move(const char* newloc) {
 }
 
 Node::~Node() {
+    nodecount--;
   lookup_table.erase(location);
   if(ide_context) {
     delete ide_context;
