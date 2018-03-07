@@ -23,11 +23,7 @@ unsigned char* gencode(Node** nodes, size_t count, ScopeNode* scope, size_t* sz)
 
 ExternalObject::~ExternalObject() {}
 
-class ValidationError {
-public:
-  std::string msg;
-  Node* node = 0;
-};
+
 
 class Verifier {
 public:
@@ -833,8 +829,14 @@ public:
       return parseExpression(scope,retval);
     }
   }
+  Node* move(Node* node,const char* location) {
+      if(node) {
+          node->move(location);
+      }
+      return node;
+  }
+
   ClassNode* parseClass(ScopeNode* parent) {
-    
     skipWhitespace();
     StringRef name;
     int align = 0;
@@ -876,7 +878,7 @@ public:
     
 	  ClassNode* node = new ClassNode();
 	  node->scope.name = name;
-	  node->scope.parent = parent;
+      node->scope.parent = parent;
     switch(*ptr) {
       case '{':
       {
@@ -1058,8 +1060,8 @@ public:
 	if(retval->isExtern && *ptr == ';') {
 	  ptr++;
 	  skipWhitespace();
-	  if(!scope.add(retval->name,retval)) {
-	    FunctionNode* onode = (FunctionNode*)scope.resolve(retval->name);
+      if(!parentScope->add(retval->name,retval)) {
+        FunctionNode* onode = (FunctionNode*)parentScope->resolve(retval->name);
 	    //Add overload
 	    retval->nextOverload = onode->nextOverload;
 	    onode->nextOverload = retval;
@@ -1087,8 +1089,8 @@ public:
 	  }
 	}
 	ptr++;
-	if(!scope.add(retval->name,retval)) {
-	    FunctionNode* onode = (FunctionNode*)scope.resolve(retval->name);
+    if(!parentScope->add(retval->name,retval)) {
+        FunctionNode* onode = (FunctionNode*)parentScope->resolve(retval->name);
 	    //Add overload
 	    retval->nextOverload = onode->nextOverload;
 	    onode->nextOverload = retval;
@@ -1146,16 +1148,16 @@ public:
       if(token.in(keyword,"class","goto","extern","alias","if","while","for","return")) {
 	switch(keyword) {
 	  case 0:
-	    return parseClass(scope);
+        return move(parseClass(scope),token.ptr);
 	  case 1:
 	  {
-	    return parseGoto();
+        return move(parseGoto(),token.ptr);
 	  }
 	    break;
 	  case 2:
 	  {
 	    ptr = token.ptr;
-	    return parseFunction(scope);
+        return move(parseFunction(scope),token.ptr);
 	  }
 	    break;
 	  case 3:
@@ -1177,7 +1179,7 @@ public:
 	      delete val;
 	      return 0;
 	    }
-	    return val;
+        return val->move(token.ptr);
 	  }
 	    break;
 	  case 4:
@@ -1475,16 +1477,16 @@ public:
     return parseExpression(scope);
   }
   std::vector<Node*> instructions;
-  ScopeNode scope;
+
   bool error = false;
   RefcountedString code;
-  VParser(const char* code):ParseTree(code) {
+  VParser(ScopeNode* scope,const char* code):ParseTree(code) {
     context = this;
     this->code = std::string(code);
     ptr = this->code.value->data();
-    scope.put();
+    scope->put();
    while(*ptr) {
-    Node* instruction = parse(&scope);
+    Node* instruction = parse(scope);
     skipWhitespace();
     if(instruction) {
     instructions.push_back(instruction);
@@ -1500,18 +1502,19 @@ thread_local std::map<const char*,Node*> lookup_table;
 
 static int nodecount = 0;
 void Node::put() {
-  if(context) {
+  if(context && !location) {
     location = context->ptr;
     lookup_table[location] = this;
     ide_coderef = context->code;
     nodecount++;
   }
 }
-void Node::move(const char* newloc) {
+Node* Node::move(const char* newloc) {
     lookup_table.erase(location);
     lookup_table[newloc] = this;
     location = newloc;
     ide_coderef = context->code;
+    return this;
 }
 
 Node::~Node() {
@@ -1520,23 +1523,38 @@ Node::~Node() {
   if(ide_context) {
     delete ide_context;
   }
+  if(node_scope) {
+      node_scope->remove(this);
+  }
 }
 
 
 class CompilerContextImpl:public ExternalCompilerContext {
 public:
   VParser* tounge = 0;
+  Verifier* place = 0;
   bool parse(const char* code,ScopeNode* parent, Node*** nodes, size_t* len) {
     if(tounge) {
       delete tounge;
       tounge = 0;
     }
-    tounge = new VParser(code);
-    tounge->scope.parent = parent;
+    tounge = new VParser(parent,code);
     *nodes = tounge->instructions.data();
     *len = tounge->instructions.size();
     return !tounge->error;
   }
+  bool verify(ScopeNode* scope,Node **nodes, size_t len, ValidationError **validationMessages, size_t *outlen) {
+      if(place) {
+          delete place;
+          place = 0;
+      }
+      place = new Verifier(scope);
+      bool retval = place->validate(nodes,len);
+      *validationMessages = place->errors.data();
+      *outlen = place->errors.size();
+      return retval;
+  }
+
   Node* resolve(const char* offset) {
     return lookup_table[offset];
   }
@@ -1569,13 +1587,14 @@ void parse_main(int argc, char** argv) {
   close(fd);
   
   const char* test = "";
-  VParser tounge(mander);
-  tounge.scope.name = "global";
+  ScopeNode scope;
+  VParser tounge(&scope,mander);
+  scope.name = "global";
   if(!tounge.error) {
-    Verifier place(&tounge.scope);
+    Verifier place(&scope);
     if(place.validate(tounge.instructions.data(),tounge.instructions.size())) {
     size_t sz;
-    unsigned char* code = gencode(tounge.instructions.data(),tounge.instructions.size(),&tounge.scope,&sz);
+    unsigned char* code = gencode(tounge.instructions.data(),tounge.instructions.size(),&scope,&sz);
     write(STDOUT_FILENO,code,sz);
     }else {
       printf("Compilation failed due to validation errors.\n");

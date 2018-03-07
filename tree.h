@@ -93,7 +93,7 @@ public:
     put();
   }
   void put();
-  void move(const char* newloc);
+  Node* move(const char* newloc);
   ~Node();
 };
 
@@ -123,6 +123,7 @@ class ScopeNode:public Node {
 public:
   ScopeNode* parent;
   std::map<StringRef,Node*> tokens;
+  std::map<Node*,std::vector<StringRef>> reverseTokens;
   StringRef name; //Optional name of scope
   std::string mangled_name;
   void __mangle(std::stringstream& ss) {
@@ -164,9 +165,19 @@ public:
   bool add(const StringRef& name, Node* value) {
     if(tokens.find(name) == tokens.end()) {
       tokens[name] = value;
+      value->node_scope = this;
+      reverseTokens[value].push_back(name);
       return true;
     }
     return false;
+  }
+  void remove(Node* value) {
+      StringRef* rtokens = reverseTokens[value].data();
+      size_t size = reverseTokens[value].size();
+      for(size_t i = 0;i<size;i++) {
+          tokens.erase(rtokens[i]);
+      }
+      reverseTokens.erase(value);
   }
 };
 

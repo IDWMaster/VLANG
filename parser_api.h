@@ -10,10 +10,15 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 #include "tree.h"
 
-
+class ValidationError {
+public:
+  std::string msg;
+  Node* node = 0;
+};
 class ExternalCompilerContext {
 public:
   virtual bool parse(const char* code,ScopeNode* parent, Node*** nodes, size_t* len) = 0;
+  virtual bool verify(ScopeNode* scope,Node** nodes, size_t len, ValidationError** validationMessages, size_t* outlen) = 0;
   virtual Node* resolve(const char* offset) = 0; //Resolves a node at a specific location in text.
   virtual ~ExternalCompilerContext(){};
 };
